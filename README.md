@@ -90,10 +90,38 @@ pip install -r requirements.txt
 ### 使用流程
 
 1. **硬件制作**: 按照文档制作DIY传感器手套
+
 2. **数据采集**: 运行数据采集脚本收集训练数据
-3. **模型训练**: 训练Transformer和1D-CNN模型
-4. **性能评估**: 评估模型性能并进行对比
-5. **端侧部署**: 将1D-CNN部署到Arduino
+   ```bash
+   # 传感器数据可视化测试
+   python run.py collect --visualize --duration 30
+   
+   # CSV格式数据采集
+   python run.py collect --csv --duration 60 --filename test_data
+   
+   # 自动手势分类采集（推荐）
+   python run.py collect --auto --user_id 001 --gestures 0 1 2 3 4
+   ```
+
+3. **数据预处理**: 清理和增强采集的数据
+   ```bash
+   python run.py preprocess --input_prefix raw_data
+   ```
+
+4. **模型训练**: 训练Transformer和1D-CNN模型
+   ```bash
+   python run.py train --data_prefix processed_data --model_type both
+   ```
+
+5. **性能评估**: 评估模型性能并进行对比
+   ```bash
+   python run.py evaluate --model_path models/trained/model.pth
+   ```
+
+6. **端侧部署**: 将1D-CNN部署到Arduino
+   ```bash
+   python run.py deploy --model_path models/trained/cnn_model.pth
+   ```
 
 ## 📊 性能指标
 
@@ -121,6 +149,22 @@ pip install -r requirements.txt
 ## 👨‍💼 作者
 
 **Lambert Yang** - 英国硕士学位论文项目
+
+## 📝 版本历史
+
+### v1.1 (2024-12-30) - 数据采集系统增强
+- ✨ **原始数据采集**: 移除硬件EMA滤波，采集原始ADC值保证数据完整性
+- ⏱️ **精确时间戳**: 使用相对时间戳（毫秒），精确记录数据采集间隔
+- 🤖 **自动手势采集**: 新增按手势分类的自动采集程序，支持用户ID和交互式操作
+- 📊 **增强CSV格式**: 包含元数据头部，便于数据回顾和分析
+- 🔧 **命令行优化**: 新增 `--auto`, `--csv`, `--gesture_duration` 参数
+- 🛠️ **兼容性改进**: int/float数据格式自动兼容，文件名字符清理
+
+### v1.0 (2024-12-29) - 初始版本
+- 🎯 完整的项目架构搭建
+- 📡 基础数据采集和可视化功能
+- 🧠 Transformer和1D-CNN模型框架
+- ⚡ Arduino TinyML部署准备
 
 ---
 
