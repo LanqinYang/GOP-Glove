@@ -1,0 +1,243 @@
+# BSL手势识别系统配置文件
+# 作者: Lambert Yang
+
+# 项目基本信息
+project:
+  name: "BSL-Gesture-Recognition"
+  version: "1.0.0"
+  description: "基于DIY传感器与端侧AI的BSL手势识别系统"
+  author: "Lambert Yang"
+
+# 数据配置
+data:
+  # 传感器参数
+  num_sensors: 5
+  sample_rate: 50  # Hz
+  sequence_length: 100  # 2秒 × 50Hz
+  
+  # 手势类别
+  num_classes: 11
+  class_names:
+    0: "Rest/Neutral"
+    1: "One"
+    2: "Two"
+    3: "Three"
+    4: "Four"
+    5: "Five"
+    6: "Six"
+    7: "Seven"
+    8: "Eight"
+    9: "Nine"
+    10: "Zero"
+  
+  # 数据增强
+  augmentation:
+    enabled: true
+    augment_factor: 2
+    jitter_noise_level: 0.01
+    scale_range: [0.8, 1.2]
+  
+  # 数据预处理
+  preprocessing:
+    normalize_method: "standard"  # "standard" or "minmax"
+    train_split: 0.7
+    val_split: 0.15
+    test_split: 0.15
+    random_seed: 42
+
+# Arduino配置
+arduino:
+  # 硬件连接
+  sensor_pins: [0, 1, 2, 3, 4]  # A0-A4
+  baud_rate: 115200
+  
+  # EMA滤波参数
+  ema_alpha: 0.1
+  
+  # 数据采集
+  collection_duration: 2.0  # 秒
+  countdown_time: 3  # 秒
+
+# Transformer模型配置
+transformer:
+  # 模型架构
+  model:
+    input_dim: 5
+    d_model: 128
+    nhead: 8
+    num_layers: 6
+    dim_feedforward: 512
+    dropout: 0.1
+    max_seq_len: 100
+  
+  # 训练参数
+  training:
+    learning_rate: 1e-4
+    weight_decay: 1e-5
+    batch_size: 32
+    num_epochs: 100
+    patience: 15
+    label_smoothing: 0.1
+  
+  # 优化器
+  optimizer:
+    type: "AdamW"
+    scheduler: "CosineAnnealing"
+    warmup_steps: 1000
+
+# 1D-CNN模型配置
+cnn1d:
+  # 模型架构
+  model:
+    input_shape: [100, 5]
+    filters_list: [32, 64, 128, 64]
+    kernel_sizes: [7, 5, 3, 3]
+    pool_sizes: [2, 2, 2, 2]
+    dense_units: [128, 64]
+    dropout_rate: 0.3
+    use_batch_norm: true
+  
+  # 训练参数
+  training:
+    learning_rate: 1e-3
+    batch_size: 64
+    num_epochs: 150
+    patience: 20
+    validation_split: 0.2
+  
+  # 优化器
+  optimizer:
+    type: "Adam"
+    loss_function: "sparse_categorical_crossentropy"
+  
+  # TensorFlow Lite配置
+  tflite:
+    quantization: true
+    representative_dataset_size: 100
+
+# 超轻量级模型配置（针对Arduino优化）
+lightweight_cnn1d:
+  model:
+    input_shape: [100, 5]
+    filters_list: [16, 32, 16]
+    kernel_sizes: [5, 3, 3]
+    pool_sizes: [2, 2, 2]
+    dense_units: [32]
+    dropout_rate: 0.2
+    use_batch_norm: true
+  
+  training:
+    learning_rate: 1e-3
+    batch_size: 64
+    num_epochs: 200
+    patience: 25
+
+# 实时推理配置
+inference:
+  # PC端推理
+  pc:
+    confidence_threshold: 0.95
+    window_size: 100
+    slide_step: 10
+    
+  # Arduino端推理
+  arduino:
+    model_quantization: "int8"
+    memory_limit: 32768  # bytes (32KB)
+    target_latency: 5  # ms
+
+# 数据路径配置
+paths:
+  # 数据目录
+  data:
+    raw: "datasets/raw"
+    processed: "datasets/processed"
+    cache: "datasets/cache"
+  
+  # 模型目录
+  models:
+    trained: "models/trained"
+    tflite: "models/tflite"
+    arduino: "models/arduino"
+  
+  # 日志和输出
+  logs: "logs"
+  outputs: "outputs"
+  docs: "docs"
+
+# 可视化配置
+visualization:
+  # 图表设置
+  figure_size: [12, 8]
+  dpi: 300
+  style: "seaborn"
+  
+  # 颜色方案
+  colors:
+    primary: "#1f77b4"
+    secondary: "#ff7f0e"
+    success: "#2ca02c"
+    warning: "#d62728"
+    info: "#9467bd"
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}"
+  rotation: "10 MB"
+  retention: "1 week"
+
+# 评估配置
+evaluation:
+  metrics:
+    - "accuracy"
+    - "precision"
+    - "recall"
+    - "f1_score"
+    - "confusion_matrix"
+  
+  # 性能基准
+  benchmarks:
+    transformer_min_accuracy: 0.85
+    cnn1d_min_accuracy: 0.80
+    arduino_max_latency: 10  # ms
+    arduino_max_memory: 32768  # bytes
+
+# 部署配置
+deployment:
+  # TensorFlow Lite转换
+  tflite_conversion:
+    optimization: true
+    quantization: "int8"
+    target_ops: ["TFLITE_BUILTINS_INT8"]
+  
+  # Arduino部署
+  arduino_deployment:
+    target_board: "Arduino Nano 33 BLE Sense Rev2"
+    memory_limit: 262144  # 256KB
+    flash_limit: 1048576  # 1MB
+    
+# 测试配置
+testing:
+  # 单元测试
+  unit_tests:
+    coverage_threshold: 0.8
+    test_data_size: 100
+  
+  # 集成测试
+  integration_tests:
+    test_duration: 30  # 秒
+    test_gestures: [0, 1, 2, 3, 4, 5]
+
+# 开发配置
+development:
+  # 调试模式
+  debug: false
+  
+  # 性能分析
+  profiling: false
+  
+  # 实验追踪
+  experiment_tracking:
+    enabled: true
+    backend: "tensorboard" 
