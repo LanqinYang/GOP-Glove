@@ -23,7 +23,7 @@ from loguru import logger
 class BSLDataCollector:
     """极简BSL手势数据采集器"""
     
-    def __init__(self, port: str = '/dev/cu.usbmodem1101', baudrate: int = 115200):
+    def __init__(self, port: str = '/dev/cu.usbmodem2101', baudrate: int = 115200):
         self.port = port
         self.baudrate = baudrate
         self.serial_conn = None
@@ -89,8 +89,6 @@ class BSLDataCollector:
         print(f"\n🧪 测试模式: 正在运行 {duration} 秒...")
         print(f"💾 数据将保存至: {csv_path}")
         
-        # 清空串口缓冲区，确保采集的是实时数据
-        self.serial_conn.reset_input_buffer()
         start_time = time.time()
         sample_count = 0
 
@@ -98,8 +96,11 @@ class BSLDataCollector:
             with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerow(['timestamp_ms', 'thumb', 'index', 'middle', 'ring', 'pinky'])
-
+                
+                # 发送开始指令
+                self.serial_conn.write(b'S')
                 print("\n--- 实时传感器数据 ---")
+                
                 while time.time() - start_time < duration:
                     sensor_data = self.read_sensor_data()
                     if sensor_data:
@@ -107,10 +108,13 @@ class BSLDataCollector:
                         relative_timestamp = (time.time() - start_time) * 1000
                         writer.writerow([f"{relative_timestamp:.3f}"] + sensor_data)
                         print(f"\r{sensor_data}   ", end="")
+
         except IOError as e:
             logger.error(f"文件写入失败: {e}")
             print(f"❌ 错误: 无法写入文件 {csv_path}")
-            return
+        finally:
+            # 确保发送停止指令
+            self.serial_conn.write(b'X')
         
         print(f"\n\n✅ 测试完成, 已采集 {sample_count} 个样本。")
         print(f"📁 数据已保存: {csv_path}")
@@ -142,11 +146,6 @@ class BSLDataCollector:
                 
                 print(f"    🎬 正在采集...")
                 
-                # 关键修复：在每次采集前，主动、循环地清空缓冲区
-                time.sleep(0.1) # 等待数据到达
-                while self.serial_conn.in_waiting > 0:
-                    self.serial_conn.read(self.serial_conn.in_waiting)
-
                 start_time = time.time()
                 sample_count = 0
                 
@@ -157,6 +156,9 @@ class BSLDataCollector:
                         writer.writerow([f'# User: {user_id}, Gesture: {gesture_id} ({gesture_name}), Sample: {sample_num+1}'])
                         writer.writerow(['timestamp_ms', 'thumb', 'index', 'middle', 'ring', 'pinky'])
                         
+                        # 发送开始指令
+                        self.serial_conn.write(b'S')
+                        
                         while time.time() - start_time < 2: # 采集2秒
                             sensor_data = self.read_sensor_data()
                             if sensor_data:
@@ -166,7 +168,9 @@ class BSLDataCollector:
                 except IOError as e:
                     logger.error(f"文件写入失败: {e}")
                     print(f"❌ 错误: 无法写入文件 {csv_path}")
-                    continue
+                finally:
+                    # 确保发送停止指令
+                    self.serial_conn.write(b'X')
 
                 print(f"    ✅ 完成! (样本 {sample_num + 1}/{num_samples_per_gesture}) 已采集 {sample_count} 个数据点。")
         
@@ -177,7 +181,7 @@ def main():
     
     parser = argparse.ArgumentParser(description='极简BSL手势数据采集器')
     parser.add_argument('mode', choices=['test', 'auto'], help='运行模式: test(测试传感器) 或 auto(手动采集手势)')
-    parser.add_argument('--port', default='/dev/cu.usbmodem1101', help='Arduino串口')
+    parser.add_argument('--port', default='/dev/cu.usbmodem2101', help='Arduino串口')
     parser.add_argument('--duration', type=int, default=15, help='test模式持续时间(秒)')
     
     args = parser.parse_args()
