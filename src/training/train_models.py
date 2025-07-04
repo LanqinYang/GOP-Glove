@@ -25,6 +25,7 @@ from datetime import datetime
 from typing import Dict, List, Tuple, Optional
 import argparse
 from loguru import logger
+import yaml
 
 # PyTorch相关
 import torch
@@ -504,6 +505,7 @@ def main():
     parser = argparse.ArgumentParser(description='BSL手势识别模型训练')
     parser.add_argument('--model_type', choices=['transformer', 'cnn1d', 'both'], 
                        default='both', help='要训练的模型类型')
+    parser.add_argument('--config', default='configs/config.yaml', help='配置文件路径')
     parser.add_argument('--data_dir', default='datasets/processed', help='数据目录')
     parser.add_argument('--data_prefix', required=True, help='数据文件前缀')
     parser.add_argument('--output_dir', default='models/trained', help='输出目录')
@@ -513,6 +515,18 @@ def main():
     parser.add_argument('--visualize', action='store_true', help='显示训练曲线')
     
     args = parser.parse_args()
+    
+    # 加载配置文件
+    try:
+        with open(args.config, 'r', encoding='utf-8') as f:
+            config_data = yaml.safe_load(f)
+        logger.info(f"成功加载配置文件: {args.config}")
+    except FileNotFoundError:
+        logger.error(f"配置文件未找到: {args.config}")
+        return
+    except Exception as e:
+        logger.error(f"加载配置文件失败: {e}")
+        return
     
     # 创建输出目录
     os.makedirs(args.output_dir, exist_ok=True)
@@ -536,6 +550,7 @@ def main():
         
         # 创建配置
         transformer_config = TransformerConfig()
+        transformer_config.num_classes = config_data['data']['num_classes']
         if args.epochs:
             transformer_config.num_epochs = args.epochs
         if args.batch_size:
@@ -564,6 +579,7 @@ def main():
         
         # 创建配置
         cnn1d_config = CNN1DConfig()
+        cnn1d_config.num_classes = config_data['data']['num_classes']
         if args.epochs:
             cnn1d_config.num_epochs = args.epochs
         if args.batch_size:

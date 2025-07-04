@@ -31,9 +31,8 @@ class BSLDataPreprocessor:
         """初始化预处理器"""
         self.scaler = None
         self.gesture_classes = {
-            0: "Rest/Neutral",
-            1: "One", 2: "Two", 3: "Three", 4: "Four", 5: "Five",
-            6: "Six", 7: "Seven", 8: "Eight", 9: "Nine", 10: "Zero"
+            0: "Zero", 1: "One", 2: "Two", 3: "Three", 4: "Four",
+            5: "Five", 6: "Six", 7: "Seven", 8: "Eight", 9: "Nine"
         }
         self.num_classes = len(self.gesture_classes)
         

@@ -16,9 +16,9 @@ data:
   sequence_length: 100  # 2秒 × 50Hz
   
   # 手势类别
-  num_classes: 11
+  num_classes: 10
   class_names:
-    0: "Rest/Neutral"
+    0: "Zero"
     1: "One"
     2: "Two"
     3: "Three"
@@ -28,7 +28,6 @@ data:
     7: "Seven"
     8: "Eight"
     9: "Nine"
-    10: "Zero"
   
   # 数据增强
   augmentation:

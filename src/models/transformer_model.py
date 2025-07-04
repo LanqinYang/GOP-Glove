@@ -75,7 +75,7 @@ class TransformerClassifier(nn.Module):
                  num_layers: int = 6,
                  dim_feedforward: int = 512,
                  dropout: float = 0.1,
-                 num_classes: int = 11,
+                 num_classes: int = 10,
                  max_seq_len: int = 100):
         """
         初始化Transformer分类器
@@ -241,7 +241,7 @@ class TransformerConfig:
         self.num_layers = 6
         self.dim_feedforward = 512
         self.dropout = 0.1
-        self.num_classes = 11
+        self.num_classes = 10
         self.max_seq_len = 100
         
         # 训练参数

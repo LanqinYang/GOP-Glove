@@ -72,7 +72,7 @@ class BSL_CNN1D(keras.Model):
     
     def __init__(self, 
                  input_shape: Tuple[int, int] = (100, 5),
-                 num_classes: int = 11,
+                 num_classes: int = 10,
                  filters_list: List[int] = [32, 64, 128, 64],
                  kernel_sizes: List[int] = [7, 5, 3, 3],
                  pool_sizes: List[int] = [2, 2, 2, 2],
@@ -199,7 +199,7 @@ class CNN1DConfig:
     def __init__(self):
         # 模型架构参数
         self.input_shape = (100, 5)
-        self.num_classes = 11
+        self.num_classes = 10
         self.filters_list = [32, 64, 128, 64]
         self.kernel_sizes = [7, 5, 3, 3]
         self.pool_sizes = [2, 2, 2, 2]
