@@ -33,9 +33,71 @@
 5.  用户只需在每次采集前按回车键确认即可。
 6.  所有数据将自动保存为独立的CSV文件，存储在 `datasets/gesture_csv` 目录下，并以用户ID、手势、样本编号和时间戳命名。
 
+## 数据预处理系统 (已完成)
+
+我们已经完成了一个完整的数据预处理系统，支持将CSV格式的传感器数据转换为可训练的数据集。
+
+### 核心功能
+
+1. **CSV到numpy转换**:
+   - 自动加载 `datasets/gesture_csv` 目录下的所有手势CSV文件
+   - 智能解析文件名，自动识别手势ID和用户信息
+   - 将不同长度的时间序列统一重采样到100个时间步
+
+2. **数据增强**:
+   - **抖动增强**: 为原始数据添加随机噪声，提升模型鲁棒性
+   - **缩放增强**: 随机缩放信号幅度，模拟不同强度的手势
+   - 可配置增强倍数，默认为2倍
+
+3. **数据预处理**:
+   - 数据集分割: 训练集(70%) / 验证集(15%) / 测试集(15%)
+   - 数据归一化: 支持标准化(StandardScaler)和最小-最大缩放(MinMaxScaler)
+   - 数据验证: 自动检查数据完整性和格式正确性
+
+4. **数据可视化**:
+   - 类别分布图
+   - 传感器数据分布图
+   - 传感器相关性矩阵
+   - 时间序列示例
+   - 数据质量指标
+
+### 使用方法
+
+#### 方法1: 完整流水线(推荐)
+```bash
+python run.py preprocess --mode full --visualize
+```
+
+#### 方法2: 分步执行
+```bash
+# 步骤1: CSV转换
+python run.py preprocess --mode convert --csv_dir datasets/gesture_csv
+
+# 步骤2: 数据预处理
+python run.py preprocess --mode process --input_prefix bsl_dataset
+```
+
+#### 方法3: 直接使用数据预处理器
+```bash
+# 使用独立的数据预处理器
+python src/data/data_preprocessor.py full --visualize
+```
+
+### 输出文件结构
+
+预处理完成后，会在 `datasets/processed` 目录下生成以下文件：
+- `bsl_dataset_processed_X_train.npy`: 训练集特征数据
+- `bsl_dataset_processed_X_val.npy`: 验证集特征数据  
+- `bsl_dataset_processed_X_test.npy`: 测试集特征数据
+- `bsl_dataset_processed_y_train.npy`: 训练集标签
+- `bsl_dataset_processed_y_val.npy`: 验证集标签
+- `bsl_dataset_processed_y_test.npy`: 测试集标签
+- `bsl_dataset_processed_scaler.pkl`: 数据归一化器
+- `bsl_dataset_processed_metadata.json`: 数据集元信息
+
 ## 下一步计划
 
--   [ ] **数据预处理**: 对采集到的原始CSV数据进行清洗、分割和归一化。
+-   [x] **数据预处理**: 对采集到的原始CSV数据进行清洗、分割和归一化。
 -   [ ] **模型训练**: 使用处理后的数据，训练一个初步的机器学习模型（如1D-CNN或Transformer）。
 -   [ ] **模型评估**: 评估模型在测试集上的准确率和性能。
 -   [ ] **模型部署**: 将训练好的模型（TFLite格式）部署回Arduino，实现实时手势识别。

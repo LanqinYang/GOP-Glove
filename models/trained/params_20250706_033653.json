@@ -1,0 +1,17 @@
+{
+  "n_conv_layers": 3,
+  "use_batch_norm": true,
+  "use_conv_dropout": false,
+  "use_dense_dropout": true,
+  "activation": "tanh",
+  "dense_units": 32,
+  "learning_rate": 0.00304601769850317,
+  "batch_size": 16,
+  "conv1_filters": 80,
+  "conv1_kernel": 13,
+  "conv2_filters": 26,
+  "conv2_kernel": 9,
+  "conv3_filters": 62,
+  "conv3_kernel": 11,
+  "dense_dropout": 0.5510710181611499
+}

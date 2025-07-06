@@ -1,0 +1,251 @@
+{
+  "timestamp": "20250706_030903",
+  "test_loss": 0.3001182973384857,
+  "test_accuracy": 0.949999988079071,
+  "class_distribution": {
+    "true": {
+      "0": 2,
+      "8": 2,
+      "2": 2,
+      "1": 2,
+      "3": 2,
+      "9": 2,
+      "6": 2,
+      "7": 2,
+      "4": 2,
+      "5": 2
+    },
+    "predicted": {
+      "0": 2,
+      "8": 2,
+      "2": 1,
+      "1": 3,
+      "3": 2,
+      "9": 2,
+      "6": 2,
+      "7": 2,
+      "4": 2,
+      "5": 2
+    }
+  },
+  "per_class_accuracy": {
+    "Gesture_0": 1.0,
+    "Gesture_1": 1.0,
+    "Gesture_2": 0.5,
+    "Gesture_3": 1.0,
+    "Gesture_4": 1.0,
+    "Gesture_5": 1.0,
+    "Gesture_6": 1.0,
+    "Gesture_7": 1.0,
+    "Gesture_8": 1.0,
+    "Gesture_9": 1.0
+  },
+  "confusion_matrix": [
+    [
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      2,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      2,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      2
+    ]
+  ],
+  "classification_report": {
+    "Gesture_0": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Gesture_1": {
+      "precision": 0.6666666666666666,
+      "recall": 1.0,
+      "f1-score": 0.8,
+      "support": 2.0
+    },
+    "Gesture_2": {
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1-score": 0.6666666666666666,
+      "support": 2.0
+    },
+    "Gesture_3": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Gesture_4": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Gesture_5": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Gesture_6": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Gesture_7": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Gesture_8": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Gesture_9": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "accuracy": 0.95,
+    "macro avg": {
+      "precision": 0.9666666666666666,
+      "recall": 0.95,
+      "f1-score": 0.9466666666666667,
+      "support": 20.0
+    },
+    "weighted avg": {
+      "precision": 0.9666666666666666,
+      "recall": 0.95,
+      "f1-score": 0.9466666666666667,
+      "support": 20.0
+    }
+  },
+  "confidence_stats": {
+    "mean": 0.7660580277442932,
+    "min": 0.3866881728172302,
+    "max": 0.9860745668411255,
+    "std": 0.15789636969566345
+  },
+  "error_analysis": {
+    "total_errors": 1,
+    "error_rate": 0.05,
+    "low_confidence_predictions": 2
+  }
+}
