@@ -526,7 +526,8 @@ def train_model(csv_dir, output_dir, n_trials=100, epochs=50):
         f.write(tflite_model)
     
     # COMPREHENSIVE EVALUATION
-    class_names = [f'Gesture_{i}' for i in range(10)]  # 0-9 digits
+    # Define class names for better readability in evaluation reports
+    class_names = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Static']
     eval_results = comprehensive_evaluation(model, X_test_scaled, y_test, scaler, output_dir, timestamp, history, class_names)
     
     print(f"\nModel saved: {model_path}")
