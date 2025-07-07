@@ -31,7 +31,7 @@ class BSLDataCollector:
         self.num_sensors = 5
         self.gesture_classes = {
             0: "Zero", 1: "One", 2: "Two", 3: "Three", 4: "Four",
-            5: "Five", 6: "Six", 7: "Seven", 8: "Eight", 9: "Nine"
+            5: "Five", 6: "Six", 7: "Seven", 8: "Eight", 9: "Nine", 10: "Static"
         }
         logger.info("极简数据采集器已初始化")
     
@@ -120,7 +120,7 @@ class BSLDataCollector:
         print(f"📁 数据已保存: {csv_path}")
 
     def manual_gesture_collection(self, user_id: str):
-        """手动逐一采集手势0-9, 每个手势采集10次"""
+        """手动逐一采集手势0-10, 每个手势采集10次 (包括静止状态Static)"""
         if not self.is_connected:
             print("❌ Arduino未连接")
             return
@@ -131,9 +131,10 @@ class BSLDataCollector:
         
         print(f"\n🎯 用户 {user_id} 的手势采集开始")
         print(f"每个手势将连续采集 {num_samples_per_gesture} 次，每次2秒")
+        print("包括数字0-9和静止状态Static，共11个类别")
         print("=" * 50)
         
-        for gesture_id in range(10): # 0-9
+        for gesture_id in range(11): # 0-10
             gesture_name = self.gesture_classes[gesture_id]
             print(f"\n下一个手势: ({gesture_id}) {gesture_name}")
             

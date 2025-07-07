@@ -45,7 +45,7 @@ const int INFERENCE_INTERVAL = 500;  // ms
 
 // 手势类别名称
 const char* GESTURE_NAMES[] = {
-  "Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"
+  "Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Static"
 };
 
 // 全局变量
@@ -106,7 +106,7 @@ void setup() {
   }
   
   Serial.println("系统初始化完成，开始手势识别...");
-  Serial.println("手势类别: Zero, One, Two, Three, Four, Five, Six, Seven, Eight, Nine");
+  Serial.println("手势类别: Zero, One, Two, Three, Four, Five, Six, Seven, Eight, Nine, Static");
   
   lastSampleTime = millis();
   lastInferenceTime = millis();

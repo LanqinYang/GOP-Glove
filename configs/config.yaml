@@ -16,7 +16,7 @@ data:
   sequence_length: 100  # 2秒 × 50Hz
   
   # 手势类别
-  num_classes: 10
+  num_classes: 11
   class_names:
     0: "Zero"
     1: "One"
@@ -28,6 +28,7 @@ data:
     7: "Seven"
     8: "Eight"
     9: "Nine"
+    10: "Static"
   
   # 数据增强
   augmentation:

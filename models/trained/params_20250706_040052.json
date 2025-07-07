@@ -1,0 +1,16 @@
+{
+  "n_conv_layers": 3,
+  "use_batch_norm": false,
+  "use_conv_dropout": false,
+  "use_dense_dropout": false,
+  "activation": "relu",
+  "dense_units": 54,
+  "learning_rate": 0.003255078897345013,
+  "batch_size": 16,
+  "conv1_filters": 113,
+  "conv1_kernel": 15,
+  "conv2_filters": 45,
+  "conv2_kernel": 3,
+  "conv3_filters": 128,
+  "conv3_kernel": 3
+}

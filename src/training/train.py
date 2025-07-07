@@ -35,7 +35,7 @@ np.random.seed(SEED)
 # Constants
 SEQUENCE_LENGTH = 100
 N_FEATURES = 5
-N_CLASSES = 10
+N_CLASSES = 11
 TEST_SIZE = 0.2
 VAL_SIZE = 0.2
 
