@@ -63,9 +63,9 @@ def main():
     train_parser = subparsers.add_parser('train', help='Model training')
     train_parser.add_argument('--csv_dir', default='datasets/gesture_csv')
     train_parser.add_argument('--output_dir', default='models/trained')
-    train_parser.add_argument('--model_type', default='1D_CNN', 
+    train_parser.add_argument('--model_type', required=True,
                              choices=['1D_CNN', 'XGBoost', 'CNN_LSTM', 'Transformer_Encoder'],
-                             help='Type of model to train')
+                             help='Type of model to train (required)')
     train_parser.add_argument('--epochs', type=int, default=50)
     train_parser.add_argument('--n_trials', type=int, default=100)
     train_parser.set_defaults(func=model_training)

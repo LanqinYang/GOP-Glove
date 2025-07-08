@@ -80,10 +80,8 @@ python run.py collect auto --port /dev/cu.usbmodem2101
 
 #### Basic Training
 ```bash
-# Train 1D-CNN (default model)
-python run.py train
-
-# Train specific models
+# Train specific models (model_type is required)
+python run.py train --model_type 1D_CNN
 python run.py train --model_type XGBoost
 python run.py train --model_type CNN_LSTM
 python run.py train --model_type Transformer_Encoder

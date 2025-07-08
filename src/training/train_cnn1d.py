@@ -444,7 +444,7 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     return eval_results
 
 
-def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="1D_CNN"):
+def train_model(csv_dir, output_dir, model_type, n_trials=100, epochs=50):
     """Main training function with multi-model support"""
     print(f"Loading data from {csv_dir}...")
     X, y = load_data(csv_dir)
@@ -547,11 +547,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--csv_dir', default='datasets/gesture_csv')
     parser.add_argument('--output_dir', default='models/trained')
-    parser.add_argument('--model_type', default='1D_CNN', 
+    parser.add_argument('--model_type', required=True,
                        choices=['1D_CNN', 'XGBoost', 'CNN_LSTM', 'Transformer_Encoder'],
-                       help='Type of model to train')
+                       help='Type of model to train (required)')
     parser.add_argument('--n_trials', type=int, default=100)
     parser.add_argument('--epochs', type=int, default=50)
     args = parser.parse_args()
     
-    train_model(args.csv_dir, args.output_dir, args.n_trials, args.epochs, args.model_type) 
+    train_model(args.csv_dir, args.output_dir, args.model_type, args.n_trials, args.epochs) 
