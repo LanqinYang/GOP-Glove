@@ -95,12 +95,52 @@ python src/data/data_preprocessor.py full --visualize
 - `bsl_dataset_processed_scaler.pkl`: 数据归一化器
 - `bsl_dataset_processed_metadata.json`: 数据集元信息
 
-## 下一步计划
+## 多模型架构系统
 
--   [x] **数据预处理**: 对采集到的原始CSV数据进行清洗、分割和归一化。
--   [ ] **模型训练**: 使用处理后的数据，训练一个初步的机器学习模型（如1D-CNN或Transformer）。
--   [ ] **模型评估**: 评估模型在测试集上的准确率和性能。
--   [ ] **模型部署**: 将训练好的模型（TFLite格式）部署回Arduino，实现实时手势识别。
+项目现已扩展为支持多种机器学习模型的架构，从传统机器学习到最新的深度学习技术：
+
+### 支持的模型类型
+1. **1D-CNN**: 轻量级卷积神经网络，适合Arduino边缘部署
+2. **XGBoost**: 传统机器学习基准模型，训练快速
+3. **CNN-LSTM**: 混合深度学习模型，结合CNN和LSTM优势
+4. **Transformer Encoder**: 先进的注意力机制模型，追求最高精度
+
+### 文件夹结构
+```
+models/trained/
+├── 1D_CNN/              # CNN模型文件
+├── XGBoost/             # XGBoost模型文件
+├── CNN_LSTM/            # CNN-LSTM模型文件
+└── Transformer_Encoder/ # Transformer模型文件
+```
+
+### 使用方法
+```bash
+# 训练不同类型的模型
+python run.py train --model_type 1D_CNN
+python run.py train --model_type XGBoost
+python run.py train --model_type CNN_LSTM
+python run.py train --model_type Transformer_Encoder
+```
+
+## 开发进度
+
+### 已完成 ✅
+-   [x] **数据采集系统**: Arduino硬件和Python采集脚本
+-   [x] **数据预处理**: CSV到numpy转换，数据增强，标准化
+-   [x] **1D-CNN模型**: 基础实现，超参数优化，评估系统
+-   [x] **多模型框架**: 文件夹结构，配置系统，训练脚本重构
+-   [x] **11类别支持**: 包含Static静止状态识别
+
+### 进行中 🔄
+-   [ ] **1D-CNN优化**: Arduino部署优化，轻量化设计
+-   [ ] **XGBoost实现**: 特征工程，传统ML基准
+
+### 计划中 📋
+-   [ ] **CNN-LSTM模型**: 混合架构实现
+-   [ ] **Transformer模型**: 注意力机制实现
+-   [ ] **性能对比**: 多模型基准测试
+-   [ ] **最终部署**: Arduino实时识别系统
 
 技术规格书：基于DIY传感器与端侧AI的BSL手势识别系统
 版本: 1.0

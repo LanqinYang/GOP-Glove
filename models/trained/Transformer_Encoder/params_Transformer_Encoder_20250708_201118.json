@@ -1,0 +1,15 @@
+{
+  "n_transformer_layers": 2,
+  "d_model": 128,
+  "num_heads": 2,
+  "ff_dim": 189,
+  "use_attention_dropout": true,
+  "use_transformer_dropout": false,
+  "use_dense_dropout": true,
+  "activation": "swish",
+  "dense_units": 50,
+  "learning_rate": 0.0006116978947948829,
+  "batch_size": 32,
+  "attention_dropout": 0.16343393572341877,
+  "dense_dropout": 0.4220131661047902
+}

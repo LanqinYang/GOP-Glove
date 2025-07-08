@@ -1,0 +1,15 @@
+{
+  "n_conv_layers": 1,
+  "n_lstm_layers": 1,
+  "use_batch_norm": false,
+  "use_conv_dropout": false,
+  "use_lstm_dropout": false,
+  "use_dense_dropout": false,
+  "activation": "relu",
+  "dense_units": 91,
+  "learning_rate": 0.0009339256160441354,
+  "batch_size": 32,
+  "conv1_filters": 68,
+  "conv1_kernel": 11,
+  "lstm1_units": 103
+}

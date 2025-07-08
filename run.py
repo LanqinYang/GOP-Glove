@@ -24,8 +24,21 @@ def data_collection(args):
 
 def model_training(args):
     """Model training mode"""
+    # Map model type to corresponding training script
+    script_map = {
+        "1D_CNN": "src/training/train_cnn1d.py",
+        "XGBoost": "src/training/train_xgboost.py", 
+        "CNN_LSTM": "src/training/train_cnn_lstm.py",
+        "Transformer_Encoder": "src/training/train_transformer.py"
+    }
+    
+    script_path = script_map.get(args.model_type)
+    if not script_path:
+        print(f"Error: Unknown model type '{args.model_type}'")
+        return 1
+    
     cmd = [
-        sys.executable, "src/training/train.py",
+        sys.executable, script_path,
         "--csv_dir", args.csv_dir,
         "--output_dir", args.output_dir,
         "--epochs", str(args.epochs),
@@ -50,6 +63,9 @@ def main():
     train_parser = subparsers.add_parser('train', help='Model training')
     train_parser.add_argument('--csv_dir', default='datasets/gesture_csv')
     train_parser.add_argument('--output_dir', default='models/trained')
+    train_parser.add_argument('--model_type', default='1D_CNN', 
+                             choices=['1D_CNN', 'XGBoost', 'CNN_LSTM', 'Transformer_Encoder'],
+                             help='Type of model to train')
     train_parser.add_argument('--epochs', type=int, default=50)
     train_parser.add_argument('--n_trials', type=int, default=100)
     train_parser.set_defaults(func=model_training)

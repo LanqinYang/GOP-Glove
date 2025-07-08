@@ -1,14 +1,21 @@
 # BSL 手势识别系统
 
-一个基于CNN的手势识别系统，使用弯曲传感器采集手势数据，支持0-9数字手势识别以及静止状态识别。
+一个多模型架构的手势识别系统，使用弯曲传感器采集手势数据，支持0-9数字手势识别以及静止状态识别。
 
 ## 功能特性
 
 ### 核心功能
 - **数据采集**: 支持Arduino串口数据采集
+- **多模型支持**: 1D-CNN、XGBoost、CNN-LSTM、Transformer Encoder
 - **智能训练**: 基于Optuna的超参数优化
 - **全面评估**: 包含混淆矩阵、分类报告、置信度分析等
 - **边缘部署**: 生成TensorFlow Lite模型用于Arduino推理
+
+### 支持的模型架构
+1. **1D-CNN**: 轻量级卷积神经网络，适合边缘部署
+2. **XGBoost**: 传统机器学习基准模型
+3. **CNN-LSTM**: 结合卷积和递归网络的深度学习模型
+4. **Transformer Encoder**: 基于注意力机制的先进模型
 
 ### 数据科学最佳实践
 - **正确的数据分割**: 训练/验证/测试集分离
@@ -46,11 +53,17 @@ python run.py collect auto --port /dev/cu.usbmodem2101
 
 ### 3. 模型训练
 ```bash
-# 基础训练
+# 1D-CNN模型训练（默认）
 python run.py train
 
+# 指定模型类型训练
+python run.py train --model_type 1D_CNN
+python run.py train --model_type XGBoost
+python run.py train --model_type CNN_LSTM
+python run.py train --model_type Transformer_Encoder
+
 # 自定义参数
-python run.py train --n_trials 100 --epochs 50
+python run.py train --model_type 1D_CNN --n_trials 100 --epochs 50
 ```
 
 ## 评估系统
@@ -174,13 +187,29 @@ COMPREHENSIVE EVALUATION
 ### 生成文件
 ```
 models/trained/
-├── bsl_model_20250706_030330.h5 (154KB)
-├── bsl_model_20250706_030330.tflite (20KB)
-├── scaler_20250706_030330.pkl
-├── params_20250706_030330.json
-├── evaluation_20250706_030330.json (完整评估报告)
-├── evaluation_plots_20250706_030330.png (可视化图表)
-└── predictions_20250706_030330.json (详细预测结果)
+├── 1D_CNN/
+│   ├── bsl_model_1D_CNN_20250706_030330.h5 (154KB)
+│   ├── bsl_model_1D_CNN_20250706_030330.tflite (20KB)
+│   ├── scaler_1D_CNN_20250706_030330.pkl
+│   ├── params_1D_CNN_20250706_030330.json
+│   ├── evaluation_1D_CNN_20250706_030330.json
+│   ├── evaluation_plots_1D_CNN_20250706_030330.png
+│   └── predictions_1D_CNN_20250706_030330.json
+├── XGBoost/
+│   ├── xgb_model_XGBoost_20250706_030330.pkl
+│   ├── scaler_XGBoost_20250706_030330.pkl
+│   ├── evaluation_XGBoost_20250706_030330.json
+│   └── evaluation_plots_XGBoost_20250706_030330.png
+├── CNN_LSTM/
+│   ├── bsl_model_CNN_LSTM_20250706_030330.h5
+│   ├── bsl_model_CNN_LSTM_20250706_030330.tflite
+│   ├── scaler_CNN_LSTM_20250706_030330.pkl
+│   └── evaluation_CNN_LSTM_20250706_030330.json
+└── Transformer_Encoder/
+    ├── bsl_model_Transformer_Encoder_20250706_030330.h5
+    ├── bsl_model_Transformer_Encoder_20250706_030330.tflite
+    ├── scaler_Transformer_Encoder_20250706_030330.pkl
+    └── evaluation_Transformer_Encoder_20250706_030330.json
 ```
 
 ## 系统要求

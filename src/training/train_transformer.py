@@ -1,5 +1,5 @@
 """
-BSL Gesture Recognition Training
+BSL Gesture Recognition Training - Transformer Encoder
 Author: Lambert Yang
 """
 
@@ -83,37 +83,46 @@ def load_data(csv_dir):
 
 
 def create_model(params):
-    """Create CNN model with flexible architecture"""
-    model = Sequential()
-    model.add(layers.Input(shape=(SEQUENCE_LENGTH, N_FEATURES)))
+    """Create Transformer Encoder model"""
+    inputs = layers.Input(shape=(SEQUENCE_LENGTH, N_FEATURES))
+    x = inputs
     
-    # Variable number of conv layers
-    for i in range(params['n_conv_layers']):
-        filters = params[f'conv{i+1}_filters']
-        kernel_size = params[f'conv{i+1}_kernel']
-        activation = params['activation']
-        
-        model.add(layers.Conv1D(filters, kernel_size, activation=activation))
-        
-        # Optional BatchNormalization
-        if params['use_batch_norm']:
-            model.add(layers.BatchNormalization())
-            
-        model.add(layers.MaxPooling1D(2))
-        
-        # Optional Dropout
-        if params['use_conv_dropout']:
-            model.add(layers.Dropout(params['conv_dropout']))
+    # Positional encoding (simple learned embeddings)
+    x = layers.Dense(params['d_model'])(x)
     
-    model.add(layers.GlobalAveragePooling1D())
-    model.add(layers.Dense(params['dense_units'], activation=params['activation']))
+    # Multiple transformer encoder layers
+    for i in range(params['n_transformer_layers']):
+        # Multi-head attention
+        attention_output = layers.MultiHeadAttention(
+            num_heads=params['num_heads'],
+            key_dim=params['d_model'] // params['num_heads'],
+            dropout=params['attention_dropout'] if params['use_attention_dropout'] else 0.0
+        )(x, x)
+        
+        # Add & Norm
+        attention_output = layers.Dropout(params['transformer_dropout'] if params['use_transformer_dropout'] else 0.0)(attention_output)
+        x = layers.Add()([x, attention_output])
+        x = layers.LayerNormalization()(x)
+        
+        # Feed forward
+        ff_output = layers.Dense(params['ff_dim'], activation=params['activation'])(x)
+        ff_output = layers.Dense(params['d_model'])(ff_output)
+        
+        # Add & Norm
+        ff_output = layers.Dropout(params['transformer_dropout'] if params['use_transformer_dropout'] else 0.0)(ff_output)
+        x = layers.Add()([x, ff_output])
+        x = layers.LayerNormalization()(x)
     
-    # Optional Dense Dropout
+    # Global average pooling and classification
+    x = layers.GlobalAveragePooling1D()(x)
+    x = layers.Dense(params['dense_units'], activation=params['activation'])(x)
+    
     if params['use_dense_dropout']:
-        model.add(layers.Dropout(params['dense_dropout']))
-        
-    model.add(layers.Dense(N_CLASSES, activation='softmax'))
+        x = layers.Dropout(params['dense_dropout'])(x)
     
+    outputs = layers.Dense(N_CLASSES, activation='softmax')(x)
+    
+    model = tf.keras.Model(inputs, outputs)
     model.compile(
         optimizer=Adam(learning_rate=params['learning_rate']),
         loss='sparse_categorical_crossentropy',
@@ -123,30 +132,36 @@ def create_model(params):
 
 
 def objective(trial, X_train, y_train, X_val, y_val):
-    """Optuna objective function with enhanced search space"""
+    """Optuna objective function for Transformer Encoder"""
     # Model architecture choices - directly in params dict
     params = {
-        'n_conv_layers': trial.suggest_int('n_conv_layers', 2, 4),
-        'use_batch_norm': trial.suggest_categorical('use_batch_norm', [True, False]),
-        'use_conv_dropout': trial.suggest_categorical('use_conv_dropout', [True, False]),
+        'n_transformer_layers': trial.suggest_int('n_transformer_layers', 1, 4),
+        'd_model': trial.suggest_categorical('d_model', [32, 64, 128]),
+        'num_heads': trial.suggest_categorical('num_heads', [2, 4, 8]),
+        'ff_dim': trial.suggest_int('ff_dim', 64, 256),
+        'use_attention_dropout': trial.suggest_categorical('use_attention_dropout', [True, False]),
+        'use_transformer_dropout': trial.suggest_categorical('use_transformer_dropout', [True, False]),
         'use_dense_dropout': trial.suggest_categorical('use_dense_dropout', [True, False]),
-        'activation': trial.suggest_categorical('activation', ['relu', 'tanh', 'swish']),
+        'activation': trial.suggest_categorical('activation', ['relu', 'gelu', 'swish']),
         'dense_units': trial.suggest_int('dense_units', 32, 128),
         'learning_rate': trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True),
         'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64])
     }
     
-    # Conv layer parameters
-    for i in range(params['n_conv_layers']):
-        params[f'conv{i+1}_filters'] = trial.suggest_int(f'conv{i+1}_filters', 16, 128)
-        # Kernel size should cover ~10% of sequence (3-15, step=2)
-        params[f'conv{i+1}_kernel'] = trial.suggest_int(f'conv{i+1}_kernel', 3, 15, step=2)
+    # Ensure num_heads divides d_model
+    while params['d_model'] % params['num_heads'] != 0:
+        params['num_heads'] = trial.suggest_categorical('num_heads', [2, 4, 8])
     
     # Dropout parameters (only if used)
-    if params['use_conv_dropout']:
-        params['conv_dropout'] = trial.suggest_float('conv_dropout', 0.1, 0.5)
+    if params['use_attention_dropout']:
+        params['attention_dropout'] = trial.suggest_float('attention_dropout', 0.1, 0.3)
     else:
-        params['conv_dropout'] = 0.0
+        params['attention_dropout'] = 0.0
+        
+    if params['use_transformer_dropout']:
+        params['transformer_dropout'] = trial.suggest_float('transformer_dropout', 0.1, 0.3)
+    else:
+        params['transformer_dropout'] = 0.0
         
     if params['use_dense_dropout']:
         params['dense_dropout'] = trial.suggest_float('dense_dropout', 0.2, 0.6)
@@ -444,7 +459,7 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     return eval_results
 
 
-def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="1D_CNN"):
+def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="Transformer_Encoder"):
     """Main training function with multi-model support"""
     print(f"Loading data from {csv_dir}...")
     X, y = load_data(csv_dir)
@@ -520,9 +535,15 @@ def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="1D_CNN
     with open(os.path.join(model_output_dir, f'params_{model_type}_{timestamp}.json'), 'w') as f:
         json.dump(best_params, f, indent=2)
     
-    # Convert to TFLite
+    # Convert to TFLite with Transformer support
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
+    # Enable Select TF ops for Transformer layers
+    converter.target_spec.supported_ops = [
+        tf.lite.OpsSet.TFLITE_BUILTINS,
+        tf.lite.OpsSet.SELECT_TF_OPS
+    ]
+    converter._experimental_lower_tensor_list_ops = False
     tflite_model = converter.convert()
     
     tflite_path = os.path.join(model_output_dir, f"bsl_model_{model_type}_{timestamp}.tflite")
@@ -547,7 +568,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--csv_dir', default='datasets/gesture_csv')
     parser.add_argument('--output_dir', default='models/trained')
-    parser.add_argument('--model_type', default='1D_CNN', 
+    parser.add_argument('--model_type', default='Transformer_Encoder', 
                        choices=['1D_CNN', 'XGBoost', 'CNN_LSTM', 'Transformer_Encoder'],
                        help='Type of model to train')
     parser.add_argument('--n_trials', type=int, default=100)

@@ -1,5 +1,5 @@
 """
-BSL Gesture Recognition Training
+BSL Gesture Recognition Training - XGBoost
 Author: Lambert Yang
 """
 
@@ -11,12 +11,10 @@ import pickle
 import argparse
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 
-import tensorflow as tf
-from tensorflow.keras import layers # type: ignore
-from tensorflow.keras.callbacks import EarlyStopping # type: ignore
-from tensorflow.keras.optimizers import Adam # type: ignore
+import xgboost as xgb
+from scipy.stats import skew, kurtosis
 
 import optuna
 from datetime import datetime
@@ -29,7 +27,6 @@ from collections import Counter
 
 # Set random seeds
 SEED = 42
-tf.random.set_seed(SEED)
 np.random.seed(SEED)
 
 # Constants
@@ -82,88 +79,85 @@ def load_data(csv_dir):
     return np.array(all_data), np.array(all_labels)
 
 
-def create_model(params):
-    """Create CNN model with flexible architecture"""
-    model = Sequential()
-    model.add(layers.Input(shape=(SEQUENCE_LENGTH, N_FEATURES)))
+def extract_features(X):
+    """Extract statistical features from time series data"""
+    features = []
     
-    # Variable number of conv layers
-    for i in range(params['n_conv_layers']):
-        filters = params[f'conv{i+1}_filters']
-        kernel_size = params[f'conv{i+1}_kernel']
-        activation = params['activation']
+    for sample in X:
+        sample_features = []
         
-        model.add(layers.Conv1D(filters, kernel_size, activation=activation))
-        
-        # Optional BatchNormalization
-        if params['use_batch_norm']:
-            model.add(layers.BatchNormalization())
+        # For each sensor channel
+        for channel in range(N_FEATURES):
+            data = sample[:, channel]
             
-        model.add(layers.MaxPooling1D(2))
+            # Basic statistical features
+            sample_features.extend([
+                np.mean(data),
+                np.std(data),
+                np.min(data),
+                np.max(data),
+                np.median(data),
+                skew(data),
+                kurtosis(data),
+                np.var(data)
+            ])
+            
+            # Rolling window features
+            window_size = 10
+            if len(data) >= window_size:
+                rolling_means = []
+                for i in range(len(data) - window_size + 1):
+                    rolling_means.append(np.mean(data[i:i+window_size]))
+                sample_features.extend([
+                    np.mean(rolling_means),
+                    np.std(rolling_means)
+                ])
+            else:
+                sample_features.extend([0, 0])
         
-        # Optional Dropout
-        if params['use_conv_dropout']:
-            model.add(layers.Dropout(params['conv_dropout']))
+        features.append(sample_features)
     
-    model.add(layers.GlobalAveragePooling1D())
-    model.add(layers.Dense(params['dense_units'], activation=params['activation']))
-    
-    # Optional Dense Dropout
-    if params['use_dense_dropout']:
-        model.add(layers.Dropout(params['dense_dropout']))
-        
-    model.add(layers.Dense(N_CLASSES, activation='softmax'))
-    
-    model.compile(
-        optimizer=Adam(learning_rate=params['learning_rate']),
-        loss='sparse_categorical_crossentropy',
-        metrics=['accuracy']
+    return np.array(features)
+
+
+def create_model(params):
+    """Create XGBoost model"""
+    model = xgb.XGBClassifier(
+        n_estimators=params['n_estimators'],
+        max_depth=params['max_depth'],
+        learning_rate=params['learning_rate'],
+        subsample=params['subsample'],
+        colsample_bytree=params['colsample_bytree'],
+        gamma=params['gamma'],
+        min_child_weight=params['min_child_weight'],
+        reg_alpha=params['reg_alpha'],
+        reg_lambda=params['reg_lambda'],
+        random_state=SEED,
+        n_jobs=-1
     )
     return model
 
 
 def objective(trial, X_train, y_train, X_val, y_val):
-    """Optuna objective function with enhanced search space"""
-    # Model architecture choices - directly in params dict
+    """Optuna objective function for XGBoost"""
     params = {
-        'n_conv_layers': trial.suggest_int('n_conv_layers', 2, 4),
-        'use_batch_norm': trial.suggest_categorical('use_batch_norm', [True, False]),
-        'use_conv_dropout': trial.suggest_categorical('use_conv_dropout', [True, False]),
-        'use_dense_dropout': trial.suggest_categorical('use_dense_dropout', [True, False]),
-        'activation': trial.suggest_categorical('activation', ['relu', 'tanh', 'swish']),
-        'dense_units': trial.suggest_int('dense_units', 32, 128),
-        'learning_rate': trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True),
-        'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64])
+        'n_estimators': trial.suggest_int('n_estimators', 100, 1000),
+        'max_depth': trial.suggest_int('max_depth', 3, 10),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
+        'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+        'gamma': trial.suggest_float('gamma', 0, 5),
+        'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
+        'reg_alpha': trial.suggest_float('reg_alpha', 0, 1),
+        'reg_lambda': trial.suggest_float('reg_lambda', 0, 1)
     }
-    
-    # Conv layer parameters
-    for i in range(params['n_conv_layers']):
-        params[f'conv{i+1}_filters'] = trial.suggest_int(f'conv{i+1}_filters', 16, 128)
-        # Kernel size should cover ~10% of sequence (3-15, step=2)
-        params[f'conv{i+1}_kernel'] = trial.suggest_int(f'conv{i+1}_kernel', 3, 15, step=2)
-    
-    # Dropout parameters (only if used)
-    if params['use_conv_dropout']:
-        params['conv_dropout'] = trial.suggest_float('conv_dropout', 0.1, 0.5)
-    else:
-        params['conv_dropout'] = 0.0
-        
-    if params['use_dense_dropout']:
-        params['dense_dropout'] = trial.suggest_float('dense_dropout', 0.2, 0.6)
-    else:
-        params['dense_dropout'] = 0.0
     
     try:
         model = create_model(params)
-        history = model.fit(
-            X_train, y_train,
-            batch_size=params['batch_size'],
-            epochs=20,
-            validation_data=(X_val, y_val),
-            callbacks=[EarlyStopping(patience=5, restore_best_weights=True)],
-            verbose=0
-        )
-        return max(history.history['val_accuracy'])
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_val)
+        accuracy = accuracy_score(y_val, y_pred)
+        return accuracy
     except:
         return 0.0
 
@@ -179,16 +173,19 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     print("COMPREHENSIVE EVALUATION")
     print("="*50)
     
-    # 1. Basic evaluation - loss and accuracy
+    # 1. Basic evaluation - accuracy only for XGBoost
     print("\n1. Basic Evaluation:")
-    test_loss, test_acc = model.evaluate(X_test, y_test, verbose=0)
-    print(f"   Test Loss: {test_loss:.4f}")
+    y_pred = model.predict(X_test)
+    test_acc = accuracy_score(y_test, y_pred)
     print(f"   Test Accuracy: {test_acc:.4f}")
     
     # 2. Predictions and class probabilities
     print("\n2. Generating Predictions:")
-    y_pred_proba = model.predict(X_test, verbose=0)
-    y_pred = np.argmax(y_pred_proba, axis=1)
+    try:
+        y_pred_proba = model.predict_proba(X_test)
+    except:
+        # Fallback if predict_proba not available
+        y_pred_proba = np.eye(N_CLASSES)[y_pred]
     
     # 3. Class distribution analysis
     print("\n3. Class Distribution Analysis:")
@@ -261,7 +258,6 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     print("\n9. Saving Evaluation Results:")
     eval_results = {
         'timestamp': timestamp,
-        'test_loss': float(test_loss),
         'test_accuracy': float(test_acc),
         'class_distribution': {
             'true': {str(k): int(v) for k, v in y_test_counts.items()},
@@ -444,7 +440,7 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     return eval_results
 
 
-def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="1D_CNN"):
+def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="XGBoost"):
     """Main training function with multi-model support"""
     print(f"Loading data from {csv_dir}...")
     X, y = load_data(csv_dir)
@@ -456,14 +452,17 @@ def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="1D_CNN
     
     print(f"Train: {len(X_train)}, Val: {len(X_val)}, Test: {len(X_test)}")
     
-    # Fit scaler ONLY on training data
-    print("Fitting scaler on training data...")
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train.reshape(-1, X_train.shape[-1])).reshape(X_train.shape)
+    # Extract features for XGBoost
+    print("Extracting features...")
+    X_train_features = extract_features(X_train)
+    X_val_features = extract_features(X_val)
+    X_test_features = extract_features(X_test)
     
-    # Transform validation and test sets using the fitted scaler
-    X_val_scaled = scaler.transform(X_val.reshape(-1, X_val.shape[-1])).reshape(X_val.shape)
-    X_test_scaled = scaler.transform(X_test.reshape(-1, X_test.shape[-1])).reshape(X_test.shape)
+    # Scale features
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train_features)
+    X_val_scaled = scaler.transform(X_val_features)
+    X_test_scaled = scaler.transform(X_test_features)
     
     # Optimize hyperparameters
     print(f"Optimizing hyperparameters with {n_trials} trials...")
@@ -479,26 +478,10 @@ def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="1D_CNN
     # Train final model
     print("Training final model...")
     model = create_model(best_params)
+    model.fit(X_train_scaled, y_train)
     
-    # For baseline: use more lenient early stopping or none at all
-    callbacks = []
-    if epochs <= 30:
-        # For short training, no early stopping
-        print("Short training detected, disabling early stopping for complete baseline")
-        callbacks = []
-    else:
-        # For longer training, use more lenient early stopping
-        callbacks = [EarlyStopping(patience=15, restore_best_weights=True, verbose=1)]
-        print(f"Using early stopping with patience=15")
-    
-    history = model.fit(
-        X_train_scaled, y_train,
-        batch_size=best_params['batch_size'],
-        epochs=epochs,
-        validation_data=(X_val_scaled, y_val),
-        callbacks=callbacks,
-        verbose=1
-    )
+    # No training history for XGBoost
+    history = None
     
     # Create model-specific output directory
     model_output_dir = os.path.join(output_dir, model_type)
@@ -508,8 +491,9 @@ def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="1D_CNN
     print(f"\nUsing model type: {model_type}")
     print(f"Saving to: {model_output_dir}")
     
-    model_path = os.path.join(model_output_dir, f"bsl_model_{model_type}_{timestamp}.h5")
-    model.save(model_path)
+    model_path = os.path.join(model_output_dir, f"bsl_model_{model_type}_{timestamp}.pkl")
+    with open(model_path, 'wb') as f:
+        pickle.dump(model, f)
     
     # Save scaler with timestamp
     scaler_path = os.path.join(model_output_dir, f'scaler_{model_type}_{timestamp}.pkl')
@@ -520,14 +504,8 @@ def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="1D_CNN
     with open(os.path.join(model_output_dir, f'params_{model_type}_{timestamp}.json'), 'w') as f:
         json.dump(best_params, f, indent=2)
     
-    # Convert to TFLite
-    converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    converter.optimizations = [tf.lite.Optimize.DEFAULT]
-    tflite_model = converter.convert()
-    
-    tflite_path = os.path.join(model_output_dir, f"bsl_model_{model_type}_{timestamp}.tflite")
-    with open(tflite_path, 'wb') as f:
-        f.write(tflite_model)
+    # No TFLite conversion for XGBoost
+    tflite_path = None
     
     # COMPREHENSIVE EVALUATION
     # Define class names for better readability in evaluation reports
@@ -536,18 +514,17 @@ def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="1D_CNN
     
     print(f"\nModel saved: {model_path}")
     print(f"Scaler saved: {scaler_path}")
-    print(f"TFLite model: {tflite_path} ({len(tflite_model)/1024:.1f} KB)")
     print(f"Evaluation results: {model_output_dir}/evaluation_{model_type}_{timestamp}.json")
     print(f"Evaluation plots: {model_output_dir}/evaluation_plots_{model_type}_{timestamp}.png")
     
-    return model_path, tflite_path
+    return model_path, None
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--csv_dir', default='datasets/gesture_csv')
     parser.add_argument('--output_dir', default='models/trained')
-    parser.add_argument('--model_type', default='1D_CNN', 
+    parser.add_argument('--model_type', default='XGBoost', 
                        choices=['1D_CNN', 'XGBoost', 'CNN_LSTM', 'Transformer_Encoder'],
                        help='Type of model to train')
     parser.add_argument('--n_trials', type=int, default=100)
