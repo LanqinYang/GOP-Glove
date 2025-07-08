@@ -1,222 +1,298 @@
-# BSL 手势识别系统
+# BSL Gesture Recognition System
 
-一个多模型架构的手势识别系统，使用弯曲传感器采集手势数据，支持0-9数字手势识别以及静止状态识别。
+[![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
+[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.15%2B-orange.svg)](https://tensorflow.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/LanqinYang/GOP-Glove?style=social)](https://github.com/LanqinYang/GOP-Glove/stargazers)
 
-## 功能特性
+A comprehensive multi-model gesture recognition system for British Sign Language (BSL) digits 0-9 and static state recognition using DIY flexible sensor data gloves. The system supports multiple machine learning architectures with automated hyperparameter optimization and edge deployment capabilities.
 
-### 核心功能
-- **数据采集**: 支持Arduino串口数据采集
-- **多模型支持**: 1D-CNN、XGBoost、CNN-LSTM、Transformer Encoder
-- **智能训练**: 基于Optuna的超参数优化
-- **全面评估**: 包含混淆矩阵、分类报告、置信度分析等
-- **边缘部署**: 生成TensorFlow Lite模型用于Arduino推理
+## 🚀 Features
 
-### 支持的模型架构
-1. **1D-CNN**: 轻量级卷积神经网络，适合边缘部署
-2. **XGBoost**: 传统机器学习基准模型
-3. **CNN-LSTM**: 结合卷积和递归网络的深度学习模型
-4. **Transformer Encoder**: 基于注意力机制的先进模型
+### ✨ Core Capabilities
+- **Multi-Model Architecture**: Support for 1D-CNN, XGBoost, CNN-LSTM, and Transformer Encoder models
+- **Arduino Integration**: Real-time data collection from flexible sensor gloves via serial communication
+- **Automated Optimization**: Hyperparameter tuning using Optuna for optimal model performance
+- **Edge Deployment**: TensorFlow Lite model generation for Arduino inference
+- **Comprehensive Evaluation**: Detailed performance analysis with confusion matrices, confidence scores, and visualizations
 
-### 数据科学最佳实践
-- **正确的数据分割**: 训练/验证/测试集分离
-- **标准化**: 在训练集上拟合缩放器，避免数据泄漏
-- **超参数优化**: 架构搜索包括层数、BN、激活函数、Dropout等
-- **详细评估**: 生成完整的模型性能报告和可视化
+### 🏗️ Supported Model Architectures
 
-## 系统架构
+| Model | Description | Best For |
+|-------|-------------|----------|
+| **1D-CNN** | Lightweight convolutional neural network | Edge deployment, real-time inference |
+| **XGBoost** | Gradient boosting benchmark model | Baseline comparison, interpretability |
+| **CNN-LSTM** | Hybrid deep learning with temporal modeling | Complex gesture sequences |
+| **Transformer Encoder** | Attention-based advanced architecture | State-of-the-art performance |
 
-### 硬件组件
-- Arduino微控制器
-- 5个弯曲传感器 (0-1023数值范围)
-- 串口通信 (115200波特率)
+### 📊 Machine Learning Best Practices
+- ✅ **Proper Data Splitting**: Train/Validation/Test separation without data leakage
+- ✅ **Feature Scaling**: StandardScaler fitted only on training data
+- ✅ **Hyperparameter Optimization**: Architecture search including layers, normalization, activations
+- ✅ **Comprehensive Evaluation**: Detailed performance reports with visualizations
 
-### 软件架构
-- **数据采集**: `src/data/data_collector.py`
-- **模型训练**: `src/training/train.py`
-- **主程序**: `run.py`
+## 🛠️ Installation
 
-## 快速开始
+### Prerequisites
+- Python 3.8 or higher
+- Arduino IDE (for hardware setup)
+- USB cable for Arduino communication
 
-### 1. 安装依赖
+### Quick Setup
 ```bash
+git clone https://github.com/LanqinYang/GOP-Glove.git
+cd GOP-Glove
 pip install -r requirements.txt
 ```
 
-### 2. 数据采集
+### Dependencies
 ```bash
-# 测试模式
+# Core ML frameworks
+tensorflow>=2.15.0
+scikit-learn>=1.0.0
+xgboost>=1.7.0
+optuna>=3.0.0
+
+# Data processing
+numpy>=1.21.0
+scipy>=1.9.0
+
+# Visualization
+matplotlib>=3.5.0
+seaborn>=0.11.0
+
+# Hardware communication
+pyserial>=3.5
+```
+
+## 🎮 Quick Start
+
+### 1️⃣ Data Collection
+```bash
+# Test mode (interactive)
 python run.py collect test --port /dev/cu.usbmodem2101
 
-# 自动采集模式
+# Automated collection mode
 python run.py collect auto --port /dev/cu.usbmodem2101
 ```
 
-### 3. 模型训练
+### 2️⃣ Model Training
+
+#### Basic Training
 ```bash
-# 1D-CNN模型训练（默认）
+# Train 1D-CNN (default model)
 python run.py train
 
-# 指定模型类型训练
-python run.py train --model_type 1D_CNN
+# Train specific models
 python run.py train --model_type XGBoost
 python run.py train --model_type CNN_LSTM
 python run.py train --model_type Transformer_Encoder
-
-# 自定义参数
-python run.py train --model_type 1D_CNN --n_trials 100 --epochs 50
 ```
 
-## 评估系统
+#### Advanced Training
+```bash
+# Custom hyperparameter optimization
+python run.py train --model_type 1D_CNN --n_trials 200 --epochs 100
 
-### 生成的文件
-训练完成后，系统会生成以下文件（带时间戳）：
+# Quick testing with fewer trials
+python run.py train --model_type XGBoost --n_trials 20
+```
 
-#### 模型文件
-- `bsl_model_TIMESTAMP.h5` - Keras模型
-- `bsl_model_TIMESTAMP.tflite` - TensorFlow Lite模型
-- `scaler_TIMESTAMP.pkl` - 数据缩放器
-- `params_TIMESTAMP.json` - 最优超参数
+## 📁 Project Structure
 
-#### 评估文件
-- `evaluation_TIMESTAMP.json` - 完整评估报告
-- `evaluation_plots_TIMESTAMP.png` - 可视化图表
-- `predictions_TIMESTAMP.json` - 详细预测结果
+```
+GOP-Glove/
+├── 📁 src/
+│   ├── 📁 data/
+│   │   └── data_collector.py      # Arduino data collection
+│   └── 📁 training/
+│       ├── train_cnn1d.py         # 1D-CNN training
+│       ├── train_xgboost.py       # XGBoost training
+│       ├── train_cnn_lstm.py      # CNN-LSTM training
+│       └── train_transformer.py   # Transformer training
+├── 📁 arduino/
+│   ├── 📁 data_collection/        # Arduino data collection code
+│   └── 📁 tinyml_inference/       # Edge inference code
+├── 📁 datasets/
+│   ├── 📁 csv/                    # Raw sensor data
+│   └── 📁 gesture_csv/            # Processed gesture data
+├── 📁 models/
+│   └── 📁 trained/                # Trained models with timestamps
+├── 📁 configs/
+│   └── config.yaml                # Configuration parameters
+├── run.py                         # Main CLI interface
+└── requirements.txt               # Python dependencies
+```
 
-### 评估指标
+## 🔧 Hardware Setup
 
-#### 1. 基础评估
-- **测试损失**: 模型在测试集上的损失值
-- **测试准确率**: 整体分类准确率
+### Components
+- **Arduino Uno/Nano**: Microcontroller for data collection
+- **5x Flex Sensors**: Finger position detection (0-1023 range)
+- **Resistors**: Pull-down resistors for sensor circuits
+- **Breadboard & Wires**: Circuit connections
 
-#### 2. 类别分布分析
-- **真实分布**: 各类别在测试集中的样本数
-- **预测分布**: 模型预测的各类别样本数
-- **分布偏差**: 识别模型的预测偏好
+### Wiring Diagram
+```
+Arduino Pin | Component
+------------|----------
+A0-A4       | Flex sensors (with pull-down resistors)
+5V          | Sensor power supply
+GND         | Common ground
+```
 
-#### 3. 混淆矩阵分析
-- **混淆矩阵**: 详细的分类错误统计
-- **最易混淆组合**: 找出最容易混淆的手势对
-- **可视化热力图**: 直观显示分类结果
+### Communication Protocol
+- **Baud Rate**: 115200
+- **Data Format**: CSV (timestamp, sensor1, sensor2, sensor3, sensor4, sensor5)
+- **Sampling Rate**: Configurable via Arduino code
 
-#### 4. 分类报告
-- **精确率 (Precision)**: 预测为正例中实际为正例的比例
-- **召回率 (Recall)**: 实际正例中被预测为正例的比例
-- **F1分数**: 精确率和召回率的调和平均
-- **支持度**: 各类别的样本数量
+## 📊 Model Performance & Evaluation
 
-#### 5. 单类别准确率
-- **每个手势的准确率**: 0-9各个数字的识别准确率
-- **性能差异**: 识别哪些手势表现最好/最差
-
-#### 6. 置信度分析
-- **平均置信度**: 模型预测的平均置信度
-- **置信度分布**: 预测置信度的分布情况
-- **低置信度预测**: 识别不确定的预测
-
-#### 7. 错误分析
-- **错误总数**: 分类错误的样本数
-- **错误率**: 错误样本占总样本的比例
-- **错误示例**: 具体的错误预测案例
-
-#### 8. 可视化图表
-生成6个子图的综合评估图表：
-- **混淆矩阵热力图**: 显示分类结果
-- **单类别准确率柱状图**: 各手势识别性能
-- **类别分布对比**: 真实vs预测分布
-- **置信度分布直方图**: 预测置信度统计
-- **精确率/召回率/F1对比**: 多指标性能比较
-- **各类别错误数统计**: 错误分析可视化
-
-## 技术特点
-
-### 超参数优化
-- **架构搜索**: 2-4层卷积网络
-- **正则化**: 批归一化、Dropout可选
-- **激活函数**: ReLU、Tanh、Swish
-- **卷积核大小**: 覆盖序列长度的10% (3-15)
-- **优化器**: Adam优化器，学习率自适应
-
-### 数据处理
-- **序列长度标准化**: 重采样到100个时间步
-- **特征缩放**: StandardScaler标准化
-- **数据分割**: 训练64%，验证16%，测试20%
-- **无数据泄漏**: 缩放器只在训练集上拟合
-
-### 模型评估
-- **交叉验证**: 基于验证集的早停机制
-- **多指标评估**: 准确率、精确率、召回率、F1分数
-- **可视化分析**: 混淆矩阵、置信度分布等
-- **结果保存**: JSON格式，便于后续分析
-
-## 示例输出
-
-### 训练过程
+### Training Output Example
 ```bash
 Loading data from datasets/gesture_csv...
-Loaded 100 samples
-Train: 64, Val: 16, Test: 20
-Fitting scaler on training data...
-Optimizing hyperparameters with 100 trials...
-Best validation accuracy: 0.9375
-```
+Loaded 110 samples
+Train: 70, Val: 18, Test: 22
 
-### 评估结果
-```bash
+Optimizing hyperparameters with 100 trials...
+[I 2025-01-08 10:30:15] Trial 50/100: val_accuracy=0.8889
+Best validation accuracy: 0.9167
+
 ==================================================
 COMPREHENSIVE EVALUATION
 ==================================================
-
-1. Basic Evaluation:
-   Test Loss: 0.6911
-   Test Accuracy: 0.7500
-
-4. Confusion Matrix Analysis:
-   Top confusions:
-   Gesture_8 → Gesture_9: 2 times
-   Gesture_1 → Gesture_7: 1 times
-
-7. Confidence Analysis:
-   Average confidence: 0.5700
-   Low confidence predictions (<0.5): 6
-
-8. Error Analysis:
-   Total errors: 5
-   Error rate: 0.25
+Test Accuracy: 0.8636
+Average Confidence: 0.7542
 ```
 
-### 生成文件
+### Generated Files
+Each training run creates timestamped files:
+
 ```
-models/trained/
-├── 1D_CNN/
-│   ├── bsl_model_1D_CNN_20250706_030330.h5 (154KB)
-│   ├── bsl_model_1D_CNN_20250706_030330.tflite (20KB)
-│   ├── scaler_1D_CNN_20250706_030330.pkl
-│   ├── params_1D_CNN_20250706_030330.json
-│   ├── evaluation_1D_CNN_20250706_030330.json
-│   ├── evaluation_plots_1D_CNN_20250706_030330.png
-│   └── predictions_1D_CNN_20250706_030330.json
-├── XGBoost/
-│   ├── xgb_model_XGBoost_20250706_030330.pkl
-│   ├── scaler_XGBoost_20250706_030330.pkl
-│   ├── evaluation_XGBoost_20250706_030330.json
-│   └── evaluation_plots_XGBoost_20250706_030330.png
-├── CNN_LSTM/
-│   ├── bsl_model_CNN_LSTM_20250706_030330.h5
-│   ├── bsl_model_CNN_LSTM_20250706_030330.tflite
-│   ├── scaler_CNN_LSTM_20250706_030330.pkl
-│   └── evaluation_CNN_LSTM_20250706_030330.json
-└── Transformer_Encoder/
-    ├── bsl_model_Transformer_Encoder_20250706_030330.h5
-    ├── bsl_model_Transformer_Encoder_20250706_030330.tflite
-    ├── scaler_Transformer_Encoder_20250706_030330.pkl
-    └── evaluation_Transformer_Encoder_20250706_030330.json
+models/trained/1D_CNN/
+├── bsl_model_1D_CNN_20250108_103045.h5      # Keras model
+├── bsl_model_1D_CNN_20250108_103045.tflite  # TensorFlow Lite model
+├── scaler_1D_CNN_20250108_103045.pkl        # Feature scaler
+├── params_1D_CNN_20250108_103045.json       # Best hyperparameters
+├── evaluation_1D_CNN_20250108_103045.json   # Performance metrics
+├── evaluation_plots_1D_CNN_20250108_103045.png # Visualizations
+└── predictions_1D_CNN_20250108_103045.json  # Detailed predictions
 ```
 
-## 系统要求
-- Python 3.8+
-- TensorFlow 2.15+
-- Arduino IDE (用于数据采集)
-- 串口支持
+### Evaluation Metrics
+- **Accuracy**: Overall classification performance
+- **Precision/Recall/F1**: Per-class performance metrics
+- **Confusion Matrix**: Detailed classification errors
+- **Confidence Analysis**: Prediction certainty distribution
+- **Class Distribution**: Training vs prediction balance
 
-## 许可证
-MIT License 
+## 🎯 Gesture Classes
+
+| Class ID | Gesture | Description |
+|----------|---------|-------------|
+| 0-9      | Numbers | BSL digit signs (0, 1, 2, ..., 9) |
+| 10       | Static  | Rest position/no gesture |
+
+## ⚙️ Configuration
+
+### Model Parameters
+Edit `configs/config.yaml` to customize:
+
+```yaml
+# Data parameters
+sequence_length: 100
+n_features: 5
+n_classes: 11
+
+# Training parameters
+test_size: 0.2
+val_size: 0.2
+random_seed: 42
+
+# Model-specific configurations
+models:
+  1D_CNN:
+    n_conv_layers: [2, 4]
+    filters: [16, 128]
+    kernel_sizes: [3, 15]
+  
+  XGBoost:
+    n_estimators: [100, 1000]
+    max_depth: [3, 10]
+    learning_rate: [0.01, 0.3]
+```
+
+## 🚀 Advanced Usage
+
+### Custom Model Training
+```python
+from src.training.train_cnn1d import train_model
+
+# Custom training with specific parameters
+model_path, tflite_path = train_model(
+    csv_dir="datasets/gesture_csv",
+    output_dir="models/trained",
+    n_trials=50,
+    epochs=100,
+    model_type="1D_CNN"
+)
+```
+
+### Arduino Deployment
+1. Load the generated `.tflite` model onto Arduino
+2. Use the inference code in `arduino/tinyml_inference/`
+3. Connect the sensor glove for real-time recognition
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our contributing guidelines:
+
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+4. **Push** to the branch (`git push origin feature/amazing-feature`)
+5. **Open** a Pull Request
+
+### Development Setup
+```bash
+# Install development dependencies
+pip install -r requirements.txt
+pip install black flake8 pytest
+
+# Run tests
+pytest tests/
+
+# Format code
+black src/
+flake8 src/
+```
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **TensorFlow Team** for the excellent ML framework
+- **Optuna** for hyperparameter optimization
+- **Arduino Community** for hardware support
+- **British Sign Language** community for gesture inspiration
+
+## 📞 Contact & Support
+
+- **Author**: Lambert Yang
+- **GitHub**: [@LanqinYang](https://github.com/LanqinYang)
+- **Email**: Contact via GitHub issues
+
+### Issues & Support
+- 🐛 **Bug Reports**: [Create an Issue](https://github.com/LanqinYang/GOP-Glove/issues)
+- 💡 **Feature Requests**: [Create an Issue](https://github.com/LanqinYang/GOP-Glove/issues)
+- ❓ **Questions**: [GitHub Discussions](https://github.com/LanqinYang/GOP-Glove/discussions)
+
+## 📈 Project Stats
+
+![GitHub Stats](https://github-readme-stats.vercel.app/api/pin/?username=LanqinYang&repo=GOP-Glove&theme=dark)
+
+---
+
+Made by QMUL SEMS MSc Advanced Robotics Lanqin Yang

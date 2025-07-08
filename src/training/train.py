@@ -14,7 +14,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report, confusion_matrix
 
 import tensorflow as tf
-from tensorflow.keras import layers # type: ignore
+from tensorflow.keras import layers, Sequential  # type: ignore
 from tensorflow.keras.callbacks import EarlyStopping # type: ignore
 from tensorflow.keras.optimizers import Adam # type: ignore
 
