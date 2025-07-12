@@ -483,7 +483,14 @@ def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="Transf
     # Optimize hyperparameters
     print(f"Optimizing hyperparameters with {n_trials} trials...")
     study = optuna.create_study(direction='maximize')
-    study.optimize(lambda trial: objective(trial, X_train_scaled, y_train, X_val_scaled, y_val), n_trials=n_trials)
+    
+    # Early stopping callback - stop when validation accuracy reaches 1.0
+    def early_stop_callback(study, trial):
+        if study.best_value >= 1.0:
+            print(f"Early stopping: Best validation accuracy reached 1.0 at trial {trial.number}")
+            study.stop()
+    
+    study.optimize(lambda trial: objective(trial, X_train_scaled, y_train, X_val_scaled, y_val), n_trials=n_trials, callbacks=[early_stop_callback])
     
     best_params = study.best_params
     print(f"Best validation accuracy: {study.best_value:.4f}")

@@ -1,0 +1,15 @@
+{
+  "n_transformer_layers": 2,
+  "d_model": 64,
+  "num_heads": 4,
+  "ff_dim": 119,
+  "use_attention_dropout": false,
+  "use_transformer_dropout": true,
+  "use_dense_dropout": true,
+  "activation": "gelu",
+  "dense_units": 70,
+  "learning_rate": 0.0015939762061618723,
+  "batch_size": 32,
+  "transformer_dropout": 0.29917765038055283,
+  "dense_dropout": 0.5914933694644263
+}

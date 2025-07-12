@@ -41,6 +41,7 @@ def model_training(args):
         sys.executable, script_path,
         "--csv_dir", args.csv_dir,
         "--output_dir", args.output_dir,
+        "--model_type", args.model_type,
         "--epochs", str(args.epochs),
         "--n_trials", str(args.n_trials)
     ]
