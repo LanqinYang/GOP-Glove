@@ -76,7 +76,7 @@ models:
       Transformer_Encoder: "Transformer_Encoder"
 
 # 1D-CNN模型配置
-cnn_1d:
+1D_CNN:
   # 模型架构
   model:
     input_shape: [100, 5]

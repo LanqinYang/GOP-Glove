@@ -15,6 +15,7 @@ from sklearn.metrics import classification_report, confusion_matrix, accuracy_sc
 
 import xgboost as xgb
 from scipy.stats import skew, kurtosis
+from micromlgen import port
 
 import optuna
 from datetime import datetime
@@ -35,6 +36,14 @@ N_FEATURES = 5
 N_CLASSES = 11
 TEST_SIZE = 0.2
 VAL_SIZE = 0.2
+
+# Full model parameters (high accuracy)
+FULL_MAX_ESTIMATORS = 1000
+FULL_MAX_DEPTH = 10
+
+# Arduino-optimized parameters (small file size)
+ARDUINO_MAX_ESTIMATORS = 50
+ARDUINO_MAX_DEPTH = 4
 
 
 def load_data(csv_dir):
@@ -79,8 +88,8 @@ def load_data(csv_dir):
     return np.array(all_data), np.array(all_labels)
 
 
-def extract_features(X):
-    """Extract statistical features from time series data"""
+def extract_features_full(X):
+    """Extract full feature set for maximum accuracy"""
     features = []
     
     for sample in X:
@@ -90,7 +99,7 @@ def extract_features(X):
         for channel in range(N_FEATURES):
             data = sample[:, channel]
             
-            # Basic statistical features
+            # Full statistical features
             sample_features.extend([
                 np.mean(data),
                 np.std(data),
@@ -120,29 +129,35 @@ def extract_features(X):
     return np.array(features)
 
 
-def create_model(params):
-    """Create XGBoost model"""
-    model = xgb.XGBClassifier(
-        n_estimators=params['n_estimators'],
-        max_depth=params['max_depth'],
-        learning_rate=params['learning_rate'],
-        subsample=params['subsample'],
-        colsample_bytree=params['colsample_bytree'],
-        gamma=params['gamma'],
-        min_child_weight=params['min_child_weight'],
-        reg_alpha=params['reg_alpha'],
-        reg_lambda=params['reg_lambda'],
-        random_state=SEED,
-        n_jobs=-1
-    )
-    return model
+def extract_features_arduino(X):
+    """Extract Arduino-optimized features for small file size"""
+    features = []
+    
+    for sample in X:
+        sample_features = []
+        
+        # For each sensor channel - only extract essential features
+        for channel in range(N_FEATURES):
+            data = sample[:, channel]
+            
+            # Only basic statistical features (4 instead of 10)
+            sample_features.extend([
+                np.mean(data),
+                np.std(data),
+                np.min(data),
+                np.max(data)
+            ])
+        
+        features.append(sample_features)
+    
+    return np.array(features)
 
 
-def objective(trial, X_train, y_train, X_val, y_val):
-    """Optuna objective function for XGBoost"""
+def objective_full(trial, X_train, y_train, X_val, y_val):
+    """Full model objective function for maximum accuracy"""
     params = {
-        'n_estimators': trial.suggest_int('n_estimators', 100, 1000),
-        'max_depth': trial.suggest_int('max_depth', 3, 10),
+        'n_estimators': trial.suggest_int('n_estimators', 100, FULL_MAX_ESTIMATORS),
+        'max_depth': trial.suggest_int('max_depth', 3, FULL_MAX_DEPTH),
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
         'subsample': trial.suggest_float('subsample', 0.6, 1.0),
         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
@@ -153,13 +168,106 @@ def objective(trial, X_train, y_train, X_val, y_val):
     }
     
     try:
-        model = create_model(params)
+        model = xgb.XGBClassifier(
+            objective='multi:softmax',
+            num_class=N_CLASSES,
+            eval_metric='mlogloss',
+            seed=SEED,
+            **params
+        )
         model.fit(X_train, y_train)
         y_pred = model.predict(X_val)
         accuracy = accuracy_score(y_val, y_pred)
         return accuracy
     except:
         return 0.0
+
+
+def objective_arduino(trial, X_train, y_train, X_val, y_val):
+    """Arduino-optimized objective function for small file size"""
+    params = {
+        'n_estimators': trial.suggest_int('n_estimators', 10, ARDUINO_MAX_ESTIMATORS),
+        'max_depth': trial.suggest_int('max_depth', 2, ARDUINO_MAX_DEPTH),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
+        'subsample': trial.suggest_float('subsample', 0.7, 1.0),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.7, 1.0),
+        'gamma': trial.suggest_float('gamma', 0, 2),
+        'min_child_weight': trial.suggest_int('min_child_weight', 1, 5),
+        'reg_alpha': trial.suggest_float('reg_alpha', 0, 0.5),
+        'reg_lambda': trial.suggest_float('reg_lambda', 0, 0.5)
+    }
+    
+    try:
+        model = xgb.XGBClassifier(
+            objective='multi:softmax',
+            num_class=N_CLASSES,
+            eval_metric='mlogloss',
+            seed=SEED,
+            **params
+        )
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_val)
+        accuracy = accuracy_score(y_val, y_pred)
+        return accuracy
+    except:
+        return 0.0
+
+
+def generate_arduino_header(model, scaler, model_type, timestamp, output_dir):
+    """使用micromlgen为XGBoost模型生成Arduino兼容的C代码头文件"""
+    # 使用micromlgen生成C代码
+    model_code = port(model)
+    
+    # 获取归一化参数
+    mean_values = ', '.join(f'{val:.8f}f' for val in scaler.mean_)
+    scale_values = ', '.join(f'{val:.8f}f' for val in scaler.scale_)
+    feature_count = len(scaler.mean_)
+    
+    # 生成头文件内容
+    header_content = f"""/*
+ * BSL Gesture Recognition Model - Arduino Optimized
+ *
+ * Model Type: {model_type}
+ * Timestamp:  {timestamp}
+ * Generated with micromlgen for Arduino compatibility
+ * File Size: Optimized for <1MB Arduino memory constraints
+ */
+
+#ifndef BSL_MODEL_H_{timestamp}
+#define BSL_MODEL_H_{timestamp}
+
+#include <math.h>
+
+// Feature count for normalization
+const int BSL_MODEL_FEATURES = {feature_count};
+
+// Normalization parameters (StandardScaler)
+const float scaler_mean[BSL_MODEL_FEATURES] = {{ {mean_values} }};
+const float scaler_scale[BSL_MODEL_FEATURES] = {{ {scale_values} }};
+
+// Normalization function
+void normalize_features(float* features, int length) {{
+    for (int i = 0; i < length; i++) {{
+        features[i] = (features[i] - scaler_mean[i]) / scaler_scale[i];
+    }}
+}}
+
+// Generated XGBoost model code
+{model_code}
+
+#endif // BSL_MODEL_H_{timestamp}
+"""
+    
+    # 创建输出目录
+    model_output_dir = os.path.join(output_dir, model_type)
+    os.makedirs(model_output_dir, exist_ok=True)
+    
+    # 保存头文件
+    header_path = os.path.join(model_output_dir, f"bsl_model_{model_type}_{timestamp}.h")
+    with open(header_path, 'w') as f:
+        f.write(header_content)
+        
+    return header_path
 
 
 def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestamp, history=None, class_names=None):
@@ -279,24 +387,8 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
         }
     }
     
-    # Add training history if available
-    if history is not None:
-        eval_results['training_history'] = {
-            'epochs_trained': len(history.history['accuracy']),
-            'final_train_accuracy': float(history.history['accuracy'][-1]),
-            'final_val_accuracy': float(history.history['val_accuracy'][-1]),
-            'final_train_loss': float(history.history['loss'][-1]),
-            'final_val_loss': float(history.history['val_loss'][-1]),
-            'best_val_accuracy': float(max(history.history['val_accuracy'])),
-            'best_val_accuracy_epoch': int(np.argmax(history.history['val_accuracy']) + 1),
-            'train_accuracy_history': [float(x) for x in history.history['accuracy']],
-            'val_accuracy_history': [float(x) for x in history.history['val_accuracy']],
-            'train_loss_history': [float(x) for x in history.history['loss']],
-            'val_loss_history': [float(x) for x in history.history['val_loss']]
-        }
-    
     # Save evaluation results
-    eval_path = os.path.join(output_dir, f'evaluation_{timestamp}.json')
+    eval_path = os.path.join(output_dir, f'evaluation_XGBoost_{timestamp}.json')
     with open(eval_path, 'w') as f:
         json.dump(eval_results, f, indent=2)
     print(f"   Evaluation results saved: {eval_path}")
@@ -306,7 +398,7 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     
     # Create figure with subplots - 2x4 layout to include training curves
     fig, axes = plt.subplots(2, 4, figsize=(24, 12))
-    fig.suptitle(f'BSL Gesture Recognition Evaluation - {timestamp}', fontsize=16)
+    fig.suptitle(f'BSL Gesture Recognition Evaluation - XGBoost - {timestamp}', fontsize=16)
     
     # Confusion Matrix Heatmap
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
@@ -377,43 +469,20 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     axes[1, 2].set_xticks(range(N_CLASSES))
     axes[1, 2].set_xticklabels(class_names, rotation=45)
     
-    # Training history curves (if available)
-    if history is not None:
-        # Training & Validation Accuracy
-        epochs_range = range(1, len(history.history['accuracy']) + 1)
-        axes[0, 3].plot(epochs_range, history.history['accuracy'], 'b-', label='Training Accuracy', linewidth=2)
-        axes[0, 3].plot(epochs_range, history.history['val_accuracy'], 'r-', label='Validation Accuracy', linewidth=2)
-        axes[0, 3].set_title('Training & Validation Accuracy')
-        axes[0, 3].set_xlabel('Epochs')
-        axes[0, 3].set_ylabel('Accuracy')
-        axes[0, 3].legend()
-        axes[0, 3].grid(True, alpha=0.3)
-        axes[0, 3].set_ylim(0, 1.05)
-        
-        # Training & Validation Loss
-        axes[1, 3].plot(epochs_range, history.history['loss'], 'b-', label='Training Loss', linewidth=2)
-        axes[1, 3].plot(epochs_range, history.history['val_loss'], 'r-', label='Validation Loss', linewidth=2)
-        axes[1, 3].set_title('Training & Validation Loss')
-        axes[1, 3].set_xlabel('Epochs')
-        axes[1, 3].set_ylabel('Loss')
-        axes[1, 3].legend()
-        axes[1, 3].grid(True, alpha=0.3)
-        axes[1, 3].set_yscale('log')  # Log scale for better loss visualization
-    else:
-        # If no history available, show placeholder
-        axes[0, 3].text(0.5, 0.5, 'Training History\nNot Available', 
-                       horizontalalignment='center', verticalalignment='center',
-                       transform=axes[0, 3].transAxes, fontsize=14)
-        axes[0, 3].set_title('Training Accuracy')
-        axes[1, 3].text(0.5, 0.5, 'Training History\nNot Available', 
-                       horizontalalignment='center', verticalalignment='center',
-                       transform=axes[1, 3].transAxes, fontsize=14)
-        axes[1, 3].set_title('Training Loss')
+    # XGBoost doesn't have training history, show placeholder
+    axes[0, 3].text(0.5, 0.5, 'Training History\nNot Available\n(XGBoost)', 
+                   horizontalalignment='center', verticalalignment='center',
+                   transform=axes[0, 3].transAxes, fontsize=14)
+    axes[0, 3].set_title('Training Accuracy')
+    axes[1, 3].text(0.5, 0.5, 'Training History\nNot Available\n(XGBoost)', 
+                   horizontalalignment='center', verticalalignment='center',
+                   transform=axes[1, 3].transAxes, fontsize=14)
+    axes[1, 3].set_title('Training Loss')
     
     plt.tight_layout()
     
     # Save visualization
-    viz_path = os.path.join(output_dir, f'evaluation_plots_{timestamp}.png')
+    viz_path = os.path.join(output_dir, f'evaluation_plots_XGBoost_{timestamp}.png')
     plt.savefig(viz_path, dpi=300, bbox_inches='tight')
     print(f"   Evaluation plots saved: {viz_path}")
     
@@ -428,7 +497,7 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
         'correct_predictions': [bool(x) for x in correct.tolist()]
     }
     
-    pred_path = os.path.join(output_dir, f'predictions_{timestamp}.json')
+    pred_path = os.path.join(output_dir, f'predictions_XGBoost_{timestamp}.json')
     with open(pred_path, 'w') as f:
         json.dump(predictions_data, f, indent=2)
     print(f"   Detailed predictions saved: {pred_path}")
@@ -440,102 +509,154 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     return eval_results
 
 
-def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="XGBoost"):
-    """Main training function with multi-model support"""
-    print(f"Loading data from {csv_dir}...")
+def train_model(csv_dir, output_dir, n_trials=50, model_type="XGBoost", arduino_mode=False):
+    """训练XGBoost模型 - 支持完整版本和Arduino优化版本"""
+    
+    if arduino_mode:
+        print(f"\n🤖 开始训练Arduino优化的{model_type}模型...")
+        print(f"目标：生成小于1MB的Arduino兼容.h文件")
+        print(f"限制：最大{ARDUINO_MAX_ESTIMATORS}棵树，最大深度{ARDUINO_MAX_DEPTH}")
+        model_suffix = "_Arduino"
+    else:
+        print(f"\n🚀 开始训练完整版{model_type}模型...")
+        print(f"目标：最大化模型精度")
+        print(f"参数：最大{FULL_MAX_ESTIMATORS}棵树，最大深度{FULL_MAX_DEPTH}")
+        model_suffix = ""
+    
+    # 创建输出目录
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # 加载数据
     X, y = load_data(csv_dir)
-    print(f"Loaded {len(X)} samples")
+    print(f"加载数据：{len(X)} 个样本")
     
-    # Split data first
-    X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=TEST_SIZE, random_state=SEED, stratify=y)
-    X_train, X_val, y_train, y_val = train_test_split(X_temp, y_temp, test_size=VAL_SIZE, random_state=SEED, stratify=y_temp)
+    # 根据模式选择特征提取方法
+    if arduino_mode:
+        X_features = extract_features_arduino(X)
+        print(f"Arduino优化特征提取：{X_features.shape[1]} 个特征")
+    else:
+        X_features = extract_features_full(X)
+        print(f"完整特征提取：{X_features.shape[1]} 个特征")
     
-    print(f"Train: {len(X_train)}, Val: {len(X_val)}, Test: {len(X_test)}")
+    # 数据分割
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_features, y, test_size=TEST_SIZE, random_state=SEED, stratify=y
+    )
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_train, y_train, test_size=VAL_SIZE, random_state=SEED, stratify=y_train
+    )
     
-    # Extract features for XGBoost
-    print("Extracting features...")
-    X_train_features = extract_features(X_train)
-    X_val_features = extract_features(X_val)
-    X_test_features = extract_features(X_test)
-    
-    # Scale features
+    # 数据归一化
     scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train_features)
-    X_val_scaled = scaler.transform(X_val_features)
-    X_test_scaled = scaler.transform(X_test_features)
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_val_scaled = scaler.transform(X_val)
+    X_test_scaled = scaler.transform(X_test)
     
-    # Optimize hyperparameters
-    print(f"Optimizing hyperparameters with {n_trials} trials...")
-    study = optuna.create_study(direction='maximize')
-    
-    # Early stopping callback - stop when validation accuracy reaches 1.0
-    def early_stop_callback(study, trial):
-        if study.best_value >= 1.0:
-            print(f"Early stopping: Best validation accuracy reached 1.0 at trial {trial.number}")
-            study.stop()
-    
-    study.optimize(lambda trial: objective(trial, X_train_scaled, y_train, X_val_scaled, y_val), n_trials=n_trials, callbacks=[early_stop_callback])
-    
-    best_params = study.best_params
-    print(f"Best validation accuracy: {study.best_value:.4f}")
-    print("Best parameters:")
-    for key, value in best_params.items():
-        print(f"  {key}: {value}")
-    
-    # Train final model
-    print("Training final model...")
-    model = create_model(best_params)
-    model.fit(X_train_scaled, y_train)
-    
-    # No training history for XGBoost
-    history = None
-    
-    # Create model-specific output directory
-    model_output_dir = os.path.join(output_dir, model_type)
-    os.makedirs(model_output_dir, exist_ok=True)
+    # 优化超参数
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    print(f"\nUsing model type: {model_type}")
-    print(f"Saving to: {model_output_dir}")
+    print(f"\n开始超参数优化 (试验次数: {n_trials})...")
+    study = optuna.create_study(direction='maximize')
     
-    model_path = os.path.join(model_output_dir, f"bsl_model_{model_type}_{timestamp}.pkl")
-    with open(model_path, 'wb') as f:
-        pickle.dump(model, f)
+    # 根据模式选择目标函数
+    if arduino_mode:
+        study.optimize(
+            lambda trial: objective_arduino(trial, X_train_scaled, y_train, X_val_scaled, y_val),
+            n_trials=n_trials,
+            show_progress_bar=True
+        )
+    else:
+        study.optimize(
+            lambda trial: objective_full(trial, X_train_scaled, y_train, X_val_scaled, y_val),
+            n_trials=n_trials,
+            show_progress_bar=True
+        )
     
-    # Save scaler with timestamp
-    scaler_path = os.path.join(model_output_dir, f'scaler_{model_type}_{timestamp}.pkl')
-    with open(scaler_path, 'wb') as f:
-        pickle.dump(scaler, f)
+    # 使用最佳参数训练最终模型
+    best_params = study.best_params
+    print(f"\n最佳参数：{best_params}")
     
-    # Save parameters
-    with open(os.path.join(model_output_dir, f'params_{model_type}_{timestamp}.json'), 'w') as f:
-        json.dump(best_params, f, indent=2)
+    model = xgb.XGBClassifier(
+        objective='multi:softmax',
+        num_class=N_CLASSES,
+        eval_metric='mlogloss',
+        seed=SEED,
+        **best_params
+    )
     
-    # No TFLite conversion for XGBoost
-    tflite_path = None
+    model.fit(X_train_scaled, y_train)
     
-    # COMPREHENSIVE EVALUATION
-    # Define class names for better readability in evaluation reports
-    class_names = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Static']
-    eval_results = comprehensive_evaluation(model, X_test_scaled, y_test, scaler, model_output_dir, f"{model_type}_{timestamp}", history, class_names)
+    # 评估模型
+    train_acc = accuracy_score(y_train, model.predict(X_train_scaled))
+    val_acc = accuracy_score(y_val, model.predict(X_val_scaled))
+    test_acc = accuracy_score(y_test, model.predict(X_test_scaled))
     
-    print(f"\nModel saved: {model_path}")
-    print(f"Scaler saved: {scaler_path}")
-    print(f"Evaluation results: {model_output_dir}/evaluation_{model_type}_{timestamp}.json")
-    print(f"Evaluation plots: {model_output_dir}/evaluation_plots_{model_type}_{timestamp}.png")
+    print(f"\n模型性能：")
+    print(f"训练准确率: {train_acc:.4f}")
+    print(f"验证准确率: {val_acc:.4f}")
+    print(f"测试准确率: {test_acc:.4f}")
     
-    return model_path, None
+    # 更新模型类型名称
+    final_model_type = model_type + model_suffix
+    
+    # 生成Arduino头文件
+    header_path = generate_arduino_header(model, scaler, final_model_type, timestamp, output_dir)
+    
+    # 检查文件大小
+    file_size = os.path.getsize(header_path)
+    file_size_mb = file_size / (1024 * 1024)
+    print(f"\n生成的头文件：{header_path}")
+    print(f"文件大小：{file_size_mb:.2f} MB")
+    
+    if arduino_mode:
+        if file_size_mb > 1.0:
+            print("⚠️  警告：Arduino模式文件仍超过1MB，可能需要进一步调整参数")
+        else:
+            print("✅ 文件大小符合Arduino要求！")
+    else:
+        print(f"ℹ️  完整版模型文件大小：{file_size_mb:.2f} MB")
+    
+    # 保存模型参数
+    params_path = os.path.join(output_dir, final_model_type, f"params_{final_model_type}_{timestamp}.json")
+    with open(params_path, 'w') as f:
+        json.dump({
+            'best_params': best_params,
+            'model_type': final_model_type,
+            'timestamp': timestamp,
+            'arduino_mode': arduino_mode,
+            'performance': {
+                'train_acc': train_acc,
+                'val_acc': val_acc,
+                'test_acc': test_acc
+            },
+            'model_info': {
+                'n_features': X_features.shape[1],
+                'n_classes': N_CLASSES,
+                'file_size_mb': file_size_mb,
+                'max_estimators': ARDUINO_MAX_ESTIMATORS if arduino_mode else FULL_MAX_ESTIMATORS,
+                'max_depth': ARDUINO_MAX_DEPTH if arduino_mode else FULL_MAX_DEPTH
+            }
+        }, f, indent=2)
+    
+    # 综合评估
+    model_output_dir = os.path.join(output_dir, final_model_type)
+    comprehensive_evaluation(model, X_test_scaled, y_test, scaler, model_output_dir, timestamp, 
+                           class_names=[f'Gesture_{i}' for i in range(N_CLASSES)])
+    
+    return model, scaler, header_path
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--csv_dir', default='datasets/gesture_csv')
-    parser.add_argument('--output_dir', default='models/trained')
+    parser = argparse.ArgumentParser(description='训练XGBoost BSL手势识别模型')
+    parser.add_argument('--csv_dir', default='datasets/gesture_csv', help='CSV数据文件夹路径')
+    parser.add_argument('--output_dir', default='models/trained', help='模型输出路径')
     parser.add_argument('--model_type', default='XGBoost', 
                        choices=['1D_CNN', 'XGBoost', 'CNN_LSTM', 'Transformer_Encoder'],
                        help='Type of model to train')
-    parser.add_argument('--n_trials', type=int, default=100)
-    parser.add_argument('--epochs', type=int, default=50)
+    parser.add_argument('--n_trials', type=int, default=50, help='超参数优化试验次数')
+    parser.add_argument('--epochs', type=int, default=50, help='Epochs parameter (ignored for XGBoost)')
+    parser.add_argument('--arduino', action='store_true', 
+                       help='使用Arduino优化模式（文件<1MB，但精度稍低）')
     args = parser.parse_args()
     
-    train_model(args.csv_dir, args.output_dir, args.n_trials, args.epochs, args.model_type) 
+    train_model(args.csv_dir, args.output_dir, args.n_trials, args.model_type, args.arduino) 

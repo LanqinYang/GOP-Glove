@@ -27,7 +27,7 @@ def model_training(args):
     # Map model type to corresponding training script
     script_map = {
         "1D_CNN": "src/training/train_cnn1d.py",
-        "XGBoost": "src/training/train_xgboost.py", 
+        "XGBoost": "src/training/train_xgboost.py",
         "CNN_LSTM": "src/training/train_cnn_lstm.py",
         "Transformer_Encoder": "src/training/train_transformer.py"
     }
@@ -45,6 +45,10 @@ def model_training(args):
         "--epochs", str(args.epochs),
         "--n_trials", str(args.n_trials)
     ]
+    
+    # Add arduino flag if specified
+    if hasattr(args, 'arduino') and args.arduino:
+        cmd.append("--arduino")
     
     result = subprocess.run(cmd, cwd=project_root)
     return result.returncode
@@ -69,6 +73,8 @@ def main():
                              help='Type of model to train (required)')
     train_parser.add_argument('--epochs', type=int, default=50)
     train_parser.add_argument('--n_trials', type=int, default=100)
+    train_parser.add_argument('--arduino', action='store_true', 
+                             help='Use Arduino optimization mode for XGBoost (smaller file size)')
     train_parser.set_defaults(func=model_training)
     
     args = parser.parse_args()

@@ -131,6 +131,49 @@ def create_model(params):
     return model
 
 
+def generate_arduino_header(tflite_model, scaler, model_type, timestamp, output_dir):
+    """生成一个简洁的Arduino头文件，包含模型和归一化参数。"""
+    model_hex = ', '.join(f'0x{b:02x}' for b in tflite_model)
+    mean_values = ', '.join(f'{val:.8f}f' for val in scaler.mean_)
+    scale_values = ', '.join(f'{val:.8f}f' for val in scaler.scale_)
+    
+    header_content = f"""/*
+ * BSL Gesture Recognition Model
+ *
+ * Model Type: {model_type}
+ * Timestamp:  {timestamp}
+ * Model Size: {len(tflite_model)} bytes
+ */
+
+#ifndef BSL_MODEL_H_{timestamp}
+#define BSL_MODEL_H_{timestamp}
+
+// Feature count for normalization
+const int BSL_MODEL_FEATURES = {len(scaler.mean_)};
+
+// Normalization parameters (StandardScaler)
+const float scaler_mean[BSL_MODEL_FEATURES] = {{ {mean_values} }};
+const float scaler_scale[BSL_MODEL_FEATURES] = {{ {scale_values} }};
+
+// TFLite model data
+alignas(16) const unsigned char model_data[] = {{
+    {model_hex}
+}};
+const unsigned int model_data_len = {len(tflite_model)};
+
+#endif // BSL_MODEL_H_{timestamp}
+"""
+    
+    arduino_dir = os.path.join(output_dir, "Transformer_Encoder")
+    os.makedirs(arduino_dir, exist_ok=True)
+    
+    header_path = os.path.join(arduino_dir, f"bsl_model_{model_type}_{timestamp}.h")
+    with open(header_path, 'w') as f:
+        f.write(header_content)
+    
+    return header_path
+
+
 def objective(trial, X_train, y_train, X_val, y_val):
     """Optuna objective function for Transformer Encoder"""
     # Model architecture choices - directly in params dict
@@ -556,7 +599,10 @@ def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="Transf
     tflite_path = os.path.join(model_output_dir, f"bsl_model_{model_type}_{timestamp}.tflite")
     with open(tflite_path, 'wb') as f:
         f.write(tflite_model)
-    
+        
+    # 生成Arduino头文件
+    header_path = generate_arduino_header(tflite_model, scaler, model_type, timestamp, output_dir)
+
     # COMPREHENSIVE EVALUATION
     # Define class names for better readability in evaluation reports
     class_names = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Static']
@@ -565,6 +611,7 @@ def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="Transf
     print(f"\nModel saved: {model_path}")
     print(f"Scaler saved: {scaler_path}")
     print(f"TFLite model: {tflite_path} ({len(tflite_model)/1024:.1f} KB)")
+    print(f"Arduino header: {header_path}")
     print(f"Evaluation results: {model_output_dir}/evaluation_{model_type}_{timestamp}.json")
     print(f"Evaluation plots: {model_output_dir}/evaluation_plots_{model_type}_{timestamp}.png")
     

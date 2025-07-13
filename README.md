@@ -21,7 +21,7 @@ A comprehensive multi-model gesture recognition system for British Sign Language
 | Model | Description | Best For |
 |-------|-------------|----------|
 | **1D-CNN** | Lightweight convolutional neural network | Edge deployment, real-time inference |
-| **XGBoost** | Gradient boosting benchmark model | Baseline comparison, interpretability |
+| **XGBoost** | Gradient boosting with full/Arduino modes | High accuracy or embedded deployment |
 | **CNN-LSTM** | Hybrid deep learning with temporal modeling | Complex gesture sequences |
 | **Transformer Encoder** | Attention-based advanced architecture | State-of-the-art performance |
 
@@ -30,6 +30,7 @@ A comprehensive multi-model gesture recognition system for British Sign Language
 - ✅ **Feature Scaling**: StandardScaler fitted only on training data
 - ✅ **Hyperparameter Optimization**: Architecture search including layers, normalization, activations
 - ✅ **Comprehensive Evaluation**: Detailed performance reports with visualizations
+- ✅ **Dual-Mode XGBoost**: Full version for accuracy (85%) or Arduino version for deployment (<1MB)
 
 ## 🛠️ Installation
 
@@ -51,6 +52,7 @@ pip install -r requirements.txt
 tensorflow>=2.15.0
 scikit-learn>=1.0.0
 xgboost>=1.7.0
+micromlgen>=1.1.0
 optuna>=3.0.0
 
 # Data processing
@@ -82,7 +84,8 @@ python run.py collect auto --port /dev/cu.usbmodem2101
 ```bash
 # Train specific models (model_type is required)
 python run.py train --model_type 1D_CNN
-python run.py train --model_type XGBoost
+python run.py train --model_type XGBoost                    # Full model (high accuracy)
+python run.py train --model_type XGBoost --arduino          # Arduino-optimized (<1MB)
 python run.py train --model_type CNN_LSTM
 python run.py train --model_type Transformer_Encoder
 ```
@@ -91,9 +94,10 @@ python run.py train --model_type Transformer_Encoder
 ```bash
 # Custom hyperparameter optimization
 python run.py train --model_type 1D_CNN --n_trials 200 --epochs 100
-
-# Quick testing with fewer trials
-python run.py train --model_type XGBoost --n_trials 20
+python run.py train --model_type XGBoost --n_trials 200              # Full model
+python run.py train --model_type XGBoost --n_trials 100 --arduino    # Arduino optimized
+python run.py train --model_type CNN_LSTM --n_trials 50 --epochs 200
+python run.py train --model_type Transformer_Encoder --n_trials 30 --epochs 150
 ```
 
 ## 📁 Project Structure
@@ -215,9 +219,15 @@ models:
     kernel_sizes: [3, 15]
   
   XGBoost:
-    n_estimators: [100, 1000]
-    max_depth: [3, 10]
-    learning_rate: [0.01, 0.3]
+    full_mode:
+      n_estimators: [100, 1000]   # High accuracy range
+      max_depth: [3, 10]          # Deep trees for complexity
+      learning_rate: [0.01, 0.3]
+    arduino_mode:
+      n_estimators: [10, 50]      # Memory-limited range
+      max_depth: [2, 4]           # Shallow trees for size
+      learning_rate: [0.01, 0.3]
+      target_file_size: "<1MB"    # Arduino constraint
 ```
 
 ## 🚀 Advanced Usage
@@ -236,10 +246,100 @@ model_path, tflite_path = train_model(
 )
 ```
 
+### Unified Training Interface
+```bash
+# All models use the same interface
+python run.py train --model_type 1D_CNN --n_trials 50 --epochs 100
+python run.py train --model_type XGBoost --n_trials 50               # Full version
+python run.py train --model_type XGBoost --n_trials 50 --arduino     # Arduino version
+python run.py train --model_type CNN_LSTM --n_trials 30 --epochs 200
+python run.py train --model_type Transformer_Encoder --n_trials 20 --epochs 150
+```
+
 ### Arduino Deployment
+
+#### Neural Network Models (1D-CNN, CNN-LSTM, Transformer)
 1. Load the generated `.tflite` model onto Arduino
 2. Use the inference code in `arduino/tinyml_inference/`
 3. Connect the sensor glove for real-time recognition
+
+#### XGBoost Model (Two Versions Available)
+
+**Full Version (High Accuracy)**:
+- **Training**: `python run.py train --model_type XGBoost`
+- **Features**: 50 features (5 sensors × 10 statistics)
+- **Performance**: ~85% accuracy
+- **File Size**: 2-10MB (may exceed Arduino memory)
+- **Use Case**: Desktop/server deployment
+
+**Arduino Version (Embedded Optimized)**:
+- **Training**: `python run.py train --model_type XGBoost --arduino`
+- **Features**: 20 features (5 sensors × 4 statistics) 
+- **Performance**: ~81% accuracy
+- **File Size**: <1MB (Arduino compatible)
+- **Use Case**: Arduino Uno/Nano deployment
+
+**Usage**:
+```cpp
+#include "bsl_model_XGBoost_[timestamp].h"        // Full version
+// OR
+#include "bsl_model_XGBoost_Arduino_[timestamp].h" // Arduino version
+
+// Normalize features
+float features[50];  // 50 for full, 20 for Arduino
+normalize_features(features, length);
+
+// Get prediction
+int prediction = predict(features);
+```
+
+## 🎯 XGBoost Dual-Mode Architecture
+
+XGBoost supports two distinct modes to balance accuracy and deployment constraints:
+
+### 🚀 Full Mode (High Accuracy)
+- **Purpose**: Maximum model performance
+- **Features**: 50 statistical features per sample
+- **Trees**: Up to 1000 estimators, depth up to 10
+- **Accuracy**: ~85% (best performance)
+- **File Size**: 2-10MB
+- **Deployment**: Desktop, server, high-memory embedded systems
+
+### 🤖 Arduino Mode (Embedded Optimized)
+- **Purpose**: Arduino-compatible deployment
+- **Features**: 20 essential features per sample
+- **Trees**: Up to 50 estimators, depth up to 4
+- **Accuracy**: ~81% (good performance)
+- **File Size**: <1MB
+- **Deployment**: Arduino Uno/Nano, microcontrollers
+
+### Generated Files Structure
+```
+models/trained/
+├── XGBoost/                                    # Full version
+│   ├── bsl_model_XGBoost_[timestamp].h
+│   ├── params_XGBoost_[timestamp].json
+│   ├── evaluation_XGBoost_[timestamp].json
+│   ├── evaluation_plots_XGBoost_[timestamp].png
+│   └── predictions_XGBoost_[timestamp].json
+└── XGBoost_Arduino/                           # Arduino version
+    ├── bsl_model_XGBoost_Arduino_[timestamp].h
+    ├── params_XGBoost_Arduino_[timestamp].json
+    ├── evaluation_XGBoost_Arduino_[timestamp].json
+    ├── evaluation_plots_XGBoost_Arduino_[timestamp].png
+    └── predictions_XGBoost_Arduino_[timestamp].json
+```
+
+### Comparison Table
+| Aspect | Full Mode | Arduino Mode |
+|--------|-----------|--------------|
+| **Accuracy** | ~85% | ~81% |
+| **Features** | 50 | 20 |
+| **Max Trees** | 1000 | 50 |
+| **Max Depth** | 10 | 4 |
+| **File Size** | 2-10MB | <1MB |
+| **Memory Usage** | High | Low |
+| **Training Time** | Longer | Faster |
 
 ## 🤝 Contributing
 

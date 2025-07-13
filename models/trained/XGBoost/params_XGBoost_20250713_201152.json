@@ -1,0 +1,25 @@
+{
+  "best_params": {
+    "n_estimators": 22,
+    "max_depth": 3,
+    "learning_rate": 0.2788424772772828,
+    "subsample": 0.7059444003828734,
+    "colsample_bytree": 0.921430656180653,
+    "gamma": 1.2081999013648985,
+    "min_child_weight": 5,
+    "reg_alpha": 0.24121012375625847,
+    "reg_lambda": 0.30583293305991094
+  },
+  "model_type": "XGBoost",
+  "timestamp": "20250713_201152",
+  "performance": {
+    "train_acc": 0.985781990521327,
+    "val_acc": 0.9433962264150944,
+    "test_acc": 0.8484848484848485
+  },
+  "model_info": {
+    "n_features": 20,
+    "n_classes": 11,
+    "file_size_mb": 0.06502532958984375
+  }
+}

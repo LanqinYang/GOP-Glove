@@ -1,0 +1,18 @@
+{
+  "n_conv_layers": 1,
+  "n_lstm_layers": 2,
+  "use_batch_norm": false,
+  "use_conv_dropout": false,
+  "use_lstm_dropout": true,
+  "use_dense_dropout": true,
+  "activation": "tanh",
+  "dense_units": 51,
+  "learning_rate": 0.0004193170953343611,
+  "batch_size": 16,
+  "conv1_filters": 67,
+  "conv1_kernel": 9,
+  "lstm1_units": 89,
+  "lstm2_units": 68,
+  "lstm_dropout": 0.2762043651998446,
+  "dense_dropout": 0.29723797511435884
+}
