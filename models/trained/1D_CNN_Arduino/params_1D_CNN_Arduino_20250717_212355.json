@@ -1,0 +1,15 @@
+{
+  "best_params": {
+    "use_dropout": true,
+    "learning_rate": 0.0017820763520208702,
+    "batch_size": 16
+  },
+  "model_type": "1D_CNN_Arduino",
+  "timestamp": "20250717_212355",
+  "arduino_mode": true,
+  "performance": {
+    "test_accuracy": 0.4545454680919647,
+    "test_loss": 2.2049288749694824
+  },
+  "file_size_mb": 0.0008392333984375
+}

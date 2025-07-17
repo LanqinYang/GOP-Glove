@@ -1,0 +1,28 @@
+{
+  "best_params": {
+    "n_conv_layers": 3,
+    "use_batch_norm": true,
+    "use_conv_dropout": true,
+    "use_dense_dropout": true,
+    "activation": "tanh",
+    "dense_units": 60,
+    "learning_rate": 0.00028683579738110384,
+    "batch_size": 16,
+    "conv1_filters": 34,
+    "conv1_kernel": 9,
+    "conv2_filters": 34,
+    "conv2_kernel": 11,
+    "conv3_filters": 49,
+    "conv3_kernel": 9,
+    "conv_dropout": 0.16675518333528988,
+    "dense_dropout": 0.2693855956644938
+  },
+  "model_type": "1D_CNN",
+  "timestamp": "20250717_220939",
+  "arduino_mode": false,
+  "performance": {
+    "test_accuracy": 0.7878788113594055,
+    "test_loss": 0.9190142154693604
+  },
+  "file_size_mb": 0.8101348876953125
+}

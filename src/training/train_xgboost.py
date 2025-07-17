@@ -558,17 +558,26 @@ def train_model(csv_dir, output_dir, n_trials=50, model_type="XGBoost", arduino_
     print(f"\n开始超参数优化 (试验次数: {n_trials})...")
     study = optuna.create_study(direction='maximize')
     
+    # 智能早停策略
+    def smart_early_stop_callback(study, trial):
+        # 简单策略：准确率达到完美时停止
+        if study.best_value >= 1.0:
+            print(f"🎯 早停: 验证准确率达到 {study.best_value:.4f} (≥100%) 在第 {trial.number} 次试验")
+            study.stop()
+    
     # 根据模式选择目标函数
     if arduino_mode:
         study.optimize(
             lambda trial: objective_arduino(trial, X_train_scaled, y_train, X_val_scaled, y_val),
             n_trials=n_trials,
+            callbacks=[smart_early_stop_callback],
             show_progress_bar=True
         )
     else:
         study.optimize(
             lambda trial: objective_full(trial, X_train_scaled, y_train, X_val_scaled, y_val),
             n_trials=n_trials,
+            callbacks=[smart_early_stop_callback],
             show_progress_bar=True
         )
     

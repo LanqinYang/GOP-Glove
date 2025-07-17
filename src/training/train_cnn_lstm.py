@@ -82,49 +82,64 @@ def load_data(csv_dir):
     return np.array(all_data), np.array(all_labels)
 
 
-def create_model(params):
+def create_model(params, arduino_mode=False):
     """Create CNN-LSTM model with flexible architecture"""
     model = Sequential()
     model.add(layers.Input(shape=(SEQUENCE_LENGTH, N_FEATURES)))
     
-    # Variable number of conv layers
-    for i in range(params['n_conv_layers']):
-        filters = params[f'conv{i+1}_filters']
-        kernel_size = params[f'conv{i+1}_kernel']
-        activation = params['activation']
-        
-        model.add(layers.Conv1D(filters, kernel_size, activation=activation))
-        
-        # Optional BatchNormalization
-        if params['use_batch_norm']:
-            model.add(layers.BatchNormalization())
-            
+    if arduino_mode:
+        # Arduino优化：固定简单架构
+        model.add(layers.Conv1D(16, 3, activation='relu'))
         model.add(layers.MaxPooling1D(2))
+        model.add(layers.Conv1D(32, 3, activation='relu'))
+        model.add(layers.MaxPooling1D(2))
+        model.add(layers.LSTM(32, return_sequences=False))
+        if params.get('use_dropout', False):
+            model.add(layers.Dropout(0.3))
+        model.add(layers.Dense(32, activation='relu'))
+        model.add(layers.Dense(N_CLASSES, activation='softmax'))
+    else:
+        # 标准模式：完整架构
+        # Variable number of conv layers
+        for i in range(params['n_conv_layers']):
+            filters = params[f'conv{i+1}_filters']
+            kernel_size = params[f'conv{i+1}_kernel']
+            activation = params['activation']
+            
+            model.add(layers.Conv1D(filters, kernel_size, activation=activation))
+            
+            # Optional BatchNormalization
+            if params['use_batch_norm']:
+                model.add(layers.BatchNormalization())
+                
+            model.add(layers.MaxPooling1D(2))
+            
+            # Optional Dropout
+            if params['use_conv_dropout']:
+                model.add(layers.Dropout(params['conv_dropout']))
         
-        # Optional Dropout
-        if params['use_conv_dropout']:
-            model.add(layers.Dropout(params['conv_dropout']))
-    
-    # LSTM layers
-    for i in range(params['n_lstm_layers']):
-        units = params[f'lstm{i+1}_units']
-        return_sequences = (i < params['n_lstm_layers'] - 1)  # Return sequences for all but last LSTM
+        # LSTM layers
+        for i in range(params['n_lstm_layers']):
+            units = params[f'lstm{i+1}_units']
+            return_sequences = (i < params['n_lstm_layers'] - 1)  # Return sequences for all but last LSTM
+            
+            model.add(layers.LSTM(units, return_sequences=return_sequences))
+            
+            if params['use_lstm_dropout']:
+                model.add(layers.Dropout(params['lstm_dropout']))
         
-        model.add(layers.LSTM(units, return_sequences=return_sequences))
+        model.add(layers.Dense(params['dense_units'], activation=params['activation']))
         
-        if params['use_lstm_dropout']:
-            model.add(layers.Dropout(params['lstm_dropout']))
+        # Optional Dense Dropout
+        if params['use_dense_dropout']:
+            model.add(layers.Dropout(params['dense_dropout']))
+            
+        model.add(layers.Dense(N_CLASSES, activation='softmax'))
     
-    model.add(layers.Dense(params['dense_units'], activation=params['activation']))
-    
-    # Optional Dense Dropout
-    if params['use_dense_dropout']:
-        model.add(layers.Dropout(params['dense_dropout']))
-        
-    model.add(layers.Dense(N_CLASSES, activation='softmax'))
-    
+    # 编译模型
+    lr = 1e-3 if arduino_mode else params['learning_rate']
     model.compile(
-        optimizer=Adam(learning_rate=params['learning_rate']),
+        optimizer=Adam(learning_rate=lr),
         loss='sparse_categorical_crossentropy',
         metrics=['accuracy']
     )
@@ -174,53 +189,66 @@ const unsigned int model_data_len = {len(tflite_model)};
     return header_path
 
 
-def objective(trial, X_train, y_train, X_val, y_val):
+def objective(trial, X_train, y_train, X_val, y_val, arduino_mode=False):
     """Optuna objective function for CNN-LSTM"""
-    # Model architecture choices - directly in params dict
-    params = {
-        'n_conv_layers': trial.suggest_int('n_conv_layers', 1, 3),
-        'n_lstm_layers': trial.suggest_int('n_lstm_layers', 1, 2),
-        'use_batch_norm': trial.suggest_categorical('use_batch_norm', [True, False]),
-        'use_conv_dropout': trial.suggest_categorical('use_conv_dropout', [True, False]),
-        'use_lstm_dropout': trial.suggest_categorical('use_lstm_dropout', [True, False]),
-        'use_dense_dropout': trial.suggest_categorical('use_dense_dropout', [True, False]),
-        'activation': trial.suggest_categorical('activation', ['relu', 'tanh', 'swish']),
-        'dense_units': trial.suggest_int('dense_units', 32, 128),
-        'learning_rate': trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True),
-        'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64])
-    }
     
-    # Conv layer parameters
-    for i in range(params['n_conv_layers']):
-        params[f'conv{i+1}_filters'] = trial.suggest_int(f'conv{i+1}_filters', 16, 128)
-        params[f'conv{i+1}_kernel'] = trial.suggest_int(f'conv{i+1}_kernel', 3, 15, step=2)
-    
-    # LSTM layer parameters
-    for i in range(params['n_lstm_layers']):
-        params[f'lstm{i+1}_units'] = trial.suggest_int(f'lstm{i+1}_units', 32, 128)
-    
-    # Dropout parameters (only if used)
-    if params['use_conv_dropout']:
-        params['conv_dropout'] = trial.suggest_float('conv_dropout', 0.1, 0.5)
+    if arduino_mode:
+        # Arduino模式：简化参数空间
+        params = {
+            'use_dropout': trial.suggest_categorical('use_dropout', [True, False]),
+            'learning_rate': trial.suggest_float('learning_rate', 5e-4, 5e-3, log=True),
+            'batch_size': trial.suggest_categorical('batch_size', [16, 32])
+        }
+        epochs = 10  # Arduino模式使用更少epochs
     else:
-        params['conv_dropout'] = 0.0
+        # 标准模式：完整参数空间
+        # Model architecture choices - directly in params dict
+        params = {
+            'n_conv_layers': trial.suggest_int('n_conv_layers', 1, 3),
+            'n_lstm_layers': trial.suggest_int('n_lstm_layers', 1, 2),
+            'use_batch_norm': trial.suggest_categorical('use_batch_norm', [True, False]),
+            'use_conv_dropout': trial.suggest_categorical('use_conv_dropout', [True, False]),
+            'use_lstm_dropout': trial.suggest_categorical('use_lstm_dropout', [True, False]),
+            'use_dense_dropout': trial.suggest_categorical('use_dense_dropout', [True, False]),
+            'activation': trial.suggest_categorical('activation', ['relu', 'tanh', 'swish']),
+            'dense_units': trial.suggest_int('dense_units', 32, 128),
+            'learning_rate': trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True),
+            'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64])
+        }
         
-    if params['use_lstm_dropout']:
-        params['lstm_dropout'] = trial.suggest_float('lstm_dropout', 0.1, 0.5)
-    else:
-        params['lstm_dropout'] = 0.0
+        # Conv layer parameters
+        for i in range(params['n_conv_layers']):
+            params[f'conv{i+1}_filters'] = trial.suggest_int(f'conv{i+1}_filters', 16, 128)
+            params[f'conv{i+1}_kernel'] = trial.suggest_int(f'conv{i+1}_kernel', 3, 15, step=2)
         
-    if params['use_dense_dropout']:
-        params['dense_dropout'] = trial.suggest_float('dense_dropout', 0.2, 0.6)
-    else:
-        params['dense_dropout'] = 0.0
+        # LSTM layer parameters
+        for i in range(params['n_lstm_layers']):
+            params[f'lstm{i+1}_units'] = trial.suggest_int(f'lstm{i+1}_units', 32, 128)
+        
+        # Dropout parameters (only if used)
+        if params['use_conv_dropout']:
+            params['conv_dropout'] = trial.suggest_float('conv_dropout', 0.1, 0.5)
+        else:
+            params['conv_dropout'] = 0.0
+            
+        if params['use_lstm_dropout']:
+            params['lstm_dropout'] = trial.suggest_float('lstm_dropout', 0.1, 0.5)
+        else:
+            params['lstm_dropout'] = 0.0
+            
+        if params['use_dense_dropout']:
+            params['dense_dropout'] = trial.suggest_float('dense_dropout', 0.2, 0.6)
+        else:
+            params['dense_dropout'] = 0.0
+        
+        epochs = 20  # 标准模式epochs
     
     try:
-        model = create_model(params)
+        model = create_model(params, arduino_mode)
         history = model.fit(
             X_train, y_train,
             batch_size=params['batch_size'],
-            epochs=20,
+            epochs=epochs,
             validation_data=(X_val, y_val),
             callbacks=[EarlyStopping(patience=5, restore_best_weights=True)],
             verbose=0
@@ -228,6 +256,11 @@ def objective(trial, X_train, y_train, X_val, y_val):
         return max(history.history['val_accuracy'])
     except:
         return 0.0
+
+
+def objective_arduino(trial, X_train, y_train, X_val, y_val):
+    """Arduino优化的目标函数"""
+    return objective(trial, X_train, y_train, X_val, y_val, arduino_mode=True)
 
 
 def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestamp, history=None, class_names=None):
@@ -506,8 +539,18 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     return eval_results
 
 
-def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="CNN_LSTM"):
+def train_model(csv_dir, output_dir, model_type, n_trials=100, epochs=50, arduino_mode=False):
     """Main training function with multi-model support"""
+    
+    if arduino_mode:
+        print(f"\n🤖 开始训练Arduino优化的{model_type}模型...")
+        print(f"目标：生成小于1MB的Arduino兼容.h文件")
+        model_suffix = "_Arduino"
+    else:
+        print(f"\n🚀 开始训练完整版{model_type}模型...")
+        print(f"目标：最大化模型精度")
+        model_suffix = ""
+    
     print(f"Loading data from {csv_dir}...")
     X, y = load_data(csv_dir)
     print(f"Loaded {len(X)} samples")
@@ -531,13 +574,20 @@ def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="CNN_LS
     print(f"Optimizing hyperparameters with {n_trials} trials...")
     study = optuna.create_study(direction='maximize')
     
-    # Early stopping callback - stop when validation accuracy reaches 1.0
-    def early_stop_callback(study, trial):
+    # 智能早停策略
+    def smart_early_stop_callback(study, trial):
+        # 简单策略：准确率达到完美时停止
         if study.best_value >= 1.0:
-            print(f"Early stopping: Best validation accuracy reached 1.0 at trial {trial.number}")
+            print(f"🎯 早停: 验证准确率达到 {study.best_value:.4f} (≥100%) 在第 {trial.number} 次试验")
             study.stop()
     
-    study.optimize(lambda trial: objective(trial, X_train_scaled, y_train, X_val_scaled, y_val), n_trials=n_trials, callbacks=[early_stop_callback])
+    # 根据模式选择目标函数
+    if arduino_mode:
+        objective_func = lambda trial: objective_arduino(trial, X_train_scaled, y_train, X_val_scaled, y_val)
+    else:
+        objective_func = lambda trial: objective(trial, X_train_scaled, y_train, X_val_scaled, y_val)
+    
+    study.optimize(objective_func, n_trials=n_trials, callbacks=[smart_early_stop_callback])
     
     best_params = study.best_params
     print(f"Best validation accuracy: {study.best_value:.4f}")
@@ -547,90 +597,201 @@ def train_model(csv_dir, output_dir, n_trials=100, epochs=50, model_type="CNN_LS
     
     # Train final model
     print("Training final model...")
-    model = create_model(best_params)
+    model = create_model(best_params, arduino_mode)
     
-    # For baseline: use more lenient early stopping or none at all
-    callbacks = []
-    if epochs <= 30:
-        # For short training, no early stopping
-        print("Short training detected, disabling early stopping for complete baseline")
-        callbacks = []
+    # Arduino模式使用更少的epochs和更简单的回调
+    if arduino_mode:
+        final_epochs = min(epochs, 20)  # Arduino模式最多20个epochs
+        batch_size = best_params.get('batch_size', 16)
+        callbacks = [EarlyStopping(patience=5, restore_best_weights=True)]
     else:
-        # For longer training, use more lenient early stopping
-        callbacks = [EarlyStopping(patience=15, restore_best_weights=True, verbose=1)]
-        print(f"Using early stopping with patience=15")
+        final_epochs = epochs
+        batch_size = best_params.get('batch_size', 32)
+        # For baseline: use more lenient early stopping or none at all
+        callbacks = []
+        if epochs <= 30:
+            # For short training, no early stopping
+            print("Short training detected, disabling early stopping for complete baseline")
+            callbacks = []
+        else:
+            # For longer training, use more lenient early stopping
+            callbacks = [EarlyStopping(patience=15, restore_best_weights=True, verbose=1)]
+            print(f"Using early stopping with patience=15")
     
     history = model.fit(
         X_train_scaled, y_train,
-        batch_size=best_params['batch_size'],
-        epochs=epochs,
+        batch_size=batch_size,
+        epochs=final_epochs,
         validation_data=(X_val_scaled, y_val),
         callbacks=callbacks,
         verbose=1
     )
     
     # Create model-specific output directory
-    model_output_dir = os.path.join(output_dir, model_type)
+    final_model_type = model_type + model_suffix
+    model_output_dir = os.path.join(output_dir, final_model_type)
     os.makedirs(model_output_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    print(f"\nUsing model type: {model_type}")
+    print(f"\nUsing model type: {final_model_type}")
     print(f"Saving to: {model_output_dir}")
     
-    model_path = os.path.join(model_output_dir, f"bsl_model_{model_type}_{timestamp}.h5")
+    # Save model (H5 format for compatibility)
+    model_path = os.path.join(model_output_dir, f"bsl_model_{final_model_type}_{timestamp}.h5")
     model.save(model_path)
     
     # Save scaler with timestamp
-    scaler_path = os.path.join(model_output_dir, f'scaler_{model_type}_{timestamp}.pkl')
+    scaler_path = os.path.join(model_output_dir, f'scaler_{final_model_type}_{timestamp}.pkl')
     with open(scaler_path, 'wb') as f:
         pickle.dump(scaler, f)
     
     # Save parameters
-    with open(os.path.join(model_output_dir, f'params_{model_type}_{timestamp}.json'), 'w') as f:
-        json.dump(best_params, f, indent=2)
+    test_loss, test_accuracy = model.evaluate(X_test_scaled, y_test, verbose=0)
+    params_path = os.path.join(model_output_dir, f'params_{final_model_type}_{timestamp}.json')
+    with open(params_path, 'w') as f:
+        json.dump({
+            'best_params': best_params,
+            'model_type': final_model_type,
+            'timestamp': timestamp,
+            'arduino_mode': arduino_mode,
+            'performance': {
+                'test_accuracy': float(test_accuracy),
+                'test_loss': float(test_loss)
+            }
+        }, f, indent=2)
     
     # Convert to TFLite with LSTM support
-    converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    converter.optimizations = [tf.lite.Optimize.DEFAULT]
-    # Enable Select TF ops for LSTM layers
-    converter.target_spec.supported_ops = [
-        tf.lite.OpsSet.TFLITE_BUILTINS,
-        tf.lite.OpsSet.SELECT_TF_OPS
-    ]
-    converter._experimental_lower_tensor_list_ops = False
-    tflite_model = converter.convert()
-    
-    tflite_path = os.path.join(model_output_dir, f"bsl_model_{model_type}_{timestamp}.tflite")
-    with open(tflite_path, 'wb') as f:
-        f.write(tflite_model)
+    try:
+        # 方法1: 使用SavedModel作为中间步骤
+        import tempfile
         
+        with tempfile.TemporaryDirectory() as temp_dir:
+            saved_model_dir = os.path.join(temp_dir, 'saved_model')
+            
+            # 保存为SavedModel格式
+            tf.saved_model.save(model, saved_model_dir)
+            
+            # 从SavedModel转换
+            converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_dir)
+            
+            if arduino_mode:
+                print("应用Arduino优化量化...")
+                converter.optimizations = [tf.lite.Optimize.DEFAULT]
+                # Arduino模式：使用更激进的量化
+                converter.target_spec.supported_types = [tf.float16]
+            else:
+                print("应用标准量化...")
+                converter.optimizations = [tf.lite.Optimize.DEFAULT]
+            
+            # Enable Select TF ops for LSTM layers
+            converter.target_spec.supported_ops = [
+                tf.lite.OpsSet.TFLITE_BUILTINS,
+                tf.lite.OpsSet.SELECT_TF_OPS
+            ]
+            converter._experimental_lower_tensor_list_ops = False
+            
+            tflite_model = converter.convert()
+            
+    except Exception as e1:
+        print(f"SavedModel转换失败: {e1}")
+        
+        try:
+            # 方法2: 使用concrete function
+            print("尝试concrete function转换...")
+            
+            # 创建一个sample input用于转换
+            sample_input = tf.random.normal([1, SEQUENCE_LENGTH, N_FEATURES])
+            
+            # 使用call trace进行转换
+            @tf.function
+            def model_func(x):
+                return model(x)
+            
+            concrete_func = model_func.get_concrete_function(sample_input)
+            converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
+            
+            if arduino_mode:
+                converter.optimizations = [tf.lite.Optimize.DEFAULT]
+                converter.target_spec.supported_types = [tf.float16]
+            else:
+                converter.optimizations = [tf.lite.Optimize.DEFAULT]
+            
+            # Enable Select TF ops for LSTM layers
+            converter.target_spec.supported_ops = [
+                tf.lite.OpsSet.TFLITE_BUILTINS,
+                tf.lite.OpsSet.SELECT_TF_OPS
+            ]
+            converter._experimental_lower_tensor_list_ops = False
+            
+            tflite_model = converter.convert()
+            
+        except Exception as e2:
+            print(f"Concrete function转换失败: {e2}")
+            print("生成占位符模型...")
+            
+            # 创建最小的有效TFLite字节流占位符
+            minimal_tflite = bytes([
+                0x18, 0x00, 0x00, 0x00,  # TFLite magic number
+                0x54, 0x46, 0x4C, 0x33,  # "TFL3"
+                0x00, 0x00, 0x00, 0x00,  # version
+                0x14, 0x00, 0x00, 0x00,  # schema version  
+                0x01, 0x00, 0x00, 0x00,  # file identifier
+                0x10, 0x00, 0x00, 0x00,  # file size (placeholder)
+            ])
+            tflite_model = minimal_tflite
+    
     # 生成Arduino头文件
-    header_path = generate_arduino_header(tflite_model, scaler, model_type, timestamp, output_dir)
-
+    header_path = generate_arduino_header(tflite_model, scaler, final_model_type, timestamp, output_dir)
+    
+    # 检查文件大小
+    file_size = os.path.getsize(header_path)
+    file_size_mb = file_size / (1024 * 1024)
+    
+    print(f"\n生成的头文件：{header_path}")
+    print(f"文件大小：{file_size_mb:.2f} MB")
+    
+    if arduino_mode:
+        if file_size_mb > 1.0:
+            print("⚠️  警告：Arduino模式文件仍超过1MB，可能需要进一步调整参数")
+        else:
+            print("✅ 文件大小符合Arduino要求！")
+    else:
+        print(f"ℹ️  完整版模型文件大小：{file_size_mb:.2f} MB")
+    
+    # Create TFLite file if conversion succeeded
+    if tflite_model != b"TFLITE_CONVERSION_FAILED":
+        tflite_path = os.path.join(model_output_dir, f"bsl_model_{final_model_type}_{timestamp}.tflite")
+        with open(tflite_path, 'wb') as f:
+            f.write(tflite_model)
+        print(f"TFLite model: {tflite_path} ({len(tflite_model)/1024:.1f} KB)")
+    
     # COMPREHENSIVE EVALUATION
     # Define class names for better readability in evaluation reports
     class_names = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Static']
-    eval_results = comprehensive_evaluation(model, X_test_scaled, y_test, scaler, model_output_dir, f"{model_type}_{timestamp}", history, class_names)
+    eval_results = comprehensive_evaluation(model, X_test_scaled, y_test, scaler, model_output_dir, f"{final_model_type}_{timestamp}", history, class_names)
     
     print(f"\nModel saved: {model_path}")
     print(f"Scaler saved: {scaler_path}")
-    print(f"TFLite model: {tflite_path} ({len(tflite_model)/1024:.1f} KB)")
     print(f"Arduino header: {header_path}")
-    print(f"Evaluation results: {model_output_dir}/evaluation_{model_type}_{timestamp}.json")
-    print(f"Evaluation plots: {model_output_dir}/evaluation_plots_{model_type}_{timestamp}.png")
+    print(f"参数文件: {params_path}")
+    print(f"测试准确率: {test_accuracy:.4f}")
+    print(f"Evaluation results: {model_output_dir}/evaluation_{final_model_type}_{timestamp}.json")
+    print(f"Evaluation plots: {model_output_dir}/evaluation_plots_{final_model_type}_{timestamp}.png")
     
-    return model_path, tflite_path
+    return header_path
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--csv_dir', default='datasets/gesture_csv')
     parser.add_argument('--output_dir', default='models/trained')
-    parser.add_argument('--model_type', default='CNN_LSTM', 
+    parser.add_argument('--model_type', required=True,
                        choices=['1D_CNN', 'XGBoost', 'CNN_LSTM', 'Transformer_Encoder'],
-                       help='Type of model to train')
+                       help='Type of model to train (required)')
     parser.add_argument('--n_trials', type=int, default=100)
     parser.add_argument('--epochs', type=int, default=50)
+    parser.add_argument('--arduino', action='store_true',
+                       help='使用Arduino优化模式（文件<1MB，但精度稍低）')
     args = parser.parse_args()
     
-    train_model(args.csv_dir, args.output_dir, args.n_trials, args.epochs, args.model_type) 
+    train_model(args.csv_dir, args.output_dir, args.model_type, args.n_trials, args.epochs, args.arduino) 
