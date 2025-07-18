@@ -1,0 +1,23 @@
+{
+  "best_params": {
+    "n_transformer_layers": 1,
+    "d_model": 32,
+    "num_heads": 4,
+    "ff_dim": 192,
+    "use_attention_dropout": false,
+    "use_transformer_dropout": true,
+    "use_dense_dropout": false,
+    "activation": "relu",
+    "dense_units": 112,
+    "learning_rate": 0.0037432407280815223,
+    "batch_size": 32,
+    "transformer_dropout": 0.24725128919873554
+  },
+  "model_type": "Transformer_Encoder",
+  "timestamp": "20250718_160942",
+  "arduino_mode": false,
+  "performance": {
+    "test_accuracy": 0.8030303120613098,
+    "test_loss": 0.6926071047782898
+  }
+}

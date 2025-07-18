@@ -1,0 +1,28 @@
+{
+  "best_params": {
+    "n_conv_layers": 2,
+    "n_lstm_layers": 1,
+    "use_batch_norm": false,
+    "use_conv_dropout": false,
+    "use_lstm_dropout": true,
+    "use_dense_dropout": true,
+    "activation": "relu",
+    "dense_units": 119,
+    "learning_rate": 0.0030183299559620722,
+    "batch_size": 32,
+    "conv1_filters": 53,
+    "conv1_kernel": 5,
+    "conv2_filters": 95,
+    "conv2_kernel": 13,
+    "lstm1_units": 75,
+    "lstm_dropout": 0.10484012903515931,
+    "dense_dropout": 0.3249042118321186
+  },
+  "model_type": "CNN_LSTM",
+  "timestamp": "20250718_153724",
+  "arduino_mode": false,
+  "performance": {
+    "test_accuracy": 0.8636363744735718,
+    "test_loss": 0.5683538317680359
+  }
+}

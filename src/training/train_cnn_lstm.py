@@ -179,7 +179,7 @@ const unsigned int model_data_len = {len(tflite_model)};
 #endif // BSL_MODEL_H_{timestamp}
 """
     
-    arduino_dir = os.path.join(output_dir, "CNN_LSTM")
+    arduino_dir = os.path.join(output_dir, model_type)
     os.makedirs(arduino_dir, exist_ok=True)
     
     header_path = os.path.join(arduino_dir, f"bsl_model_{model_type}_{timestamp}.h")
@@ -660,85 +660,41 @@ def train_model(csv_dir, output_dir, model_type, n_trials=100, epochs=50, arduin
             }
         }, f, indent=2)
     
-    # Convert to TFLite with LSTM support
-    try:
-        # 方法1: 使用SavedModel作为中间步骤
-        import tempfile
-        
-        with tempfile.TemporaryDirectory() as temp_dir:
-            saved_model_dir = os.path.join(temp_dir, 'saved_model')
-            
-            # 保存为SavedModel格式
-            tf.saved_model.save(model, saved_model_dir)
-            
-            # 从SavedModel转换
-            converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_dir)
-            
-            if arduino_mode:
-                print("应用Arduino优化量化...")
-                converter.optimizations = [tf.lite.Optimize.DEFAULT]
-                # Arduino模式：使用更激进的量化
-                converter.target_spec.supported_types = [tf.float16]
-            else:
-                print("应用标准量化...")
-                converter.optimizations = [tf.lite.Optimize.DEFAULT]
-            
-            # Enable Select TF ops for LSTM layers
-            converter.target_spec.supported_ops = [
-                tf.lite.OpsSet.TFLITE_BUILTINS,
-                tf.lite.OpsSet.SELECT_TF_OPS
-            ]
-            converter._experimental_lower_tensor_list_ops = False
-            
-            tflite_model = converter.convert()
-            
-    except Exception as e1:
-        print(f"SavedModel转换失败: {e1}")
-        
-        try:
-            # 方法2: 使用concrete function
-            print("尝试concrete function转换...")
-            
-            # 创建一个sample input用于转换
-            sample_input = tf.random.normal([1, SEQUENCE_LENGTH, N_FEATURES])
-            
-            # 使用call trace进行转换
-            @tf.function
-            def model_func(x):
-                return model(x)
-            
-            concrete_func = model_func.get_concrete_function(sample_input)
-            converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
-            
-            if arduino_mode:
-                converter.optimizations = [tf.lite.Optimize.DEFAULT]
-                converter.target_spec.supported_types = [tf.float16]
-            else:
-                converter.optimizations = [tf.lite.Optimize.DEFAULT]
-            
-            # Enable Select TF ops for LSTM layers
-            converter.target_spec.supported_ops = [
-                tf.lite.OpsSet.TFLITE_BUILTINS,
-                tf.lite.OpsSet.SELECT_TF_OPS
-            ]
-            converter._experimental_lower_tensor_list_ops = False
-            
-            tflite_model = converter.convert()
-            
-        except Exception as e2:
-            print(f"Concrete function转换失败: {e2}")
-            print("生成占位符模型...")
-            
-            # 创建最小的有效TFLite字节流占位符
-            minimal_tflite = bytes([
-                0x18, 0x00, 0x00, 0x00,  # TFLite magic number
-                0x54, 0x46, 0x4C, 0x33,  # "TFL3"
-                0x00, 0x00, 0x00, 0x00,  # version
-                0x14, 0x00, 0x00, 0x00,  # schema version  
-                0x01, 0x00, 0x00, 0x00,  # file identifier
-                0x10, 0x00, 0x00, 0x00,  # file size (placeholder)
-            ])
-            tflite_model = minimal_tflite
+    # 应用量化 - 使用函数包装解决兼容性问题
+    @tf.function
+    def model_func(x):
+        return model(x)
+    
+    # 获取输入规格
+    input_shape = [1, SEQUENCE_LENGTH, N_FEATURES]
+    concrete_func = model_func.get_concrete_function(
+        tf.TensorSpec(shape=input_shape, dtype=tf.float32)
+    )
+    
+    # 使用标准的from_concrete_functions方法
+    converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
+    
+    if arduino_mode:
+        print("应用Arduino优化量化...")
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+        converter.target_spec.supported_types = [tf.float16]
+    else:
+        print("应用标准量化...")
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+    
+    # Enable Select TF ops for LSTM layers
+    converter.target_spec.supported_ops = [
+        tf.lite.OpsSet.TFLITE_BUILTINS,
+        tf.lite.OpsSet.SELECT_TF_OPS
+    ]
+    converter._experimental_lower_tensor_list_ops = False
+    
+    # 直接转换，不使用任何异常处理回退
+    tflite_model = converter.convert()
+    
+    # 打印模型大小
+    model_size = len(tflite_model)
+    print(f"TFLite模型大小: {model_size} bytes ({model_size/1024:.1f} KB)")
     
     # 生成Arduino头文件
     header_path = generate_arduino_header(tflite_model, scaler, final_model_type, timestamp, output_dir)

@@ -196,10 +196,11 @@ const unsigned int model_data_len = {model_size};
 #endif // BSL_MODEL_H_{timestamp.replace('-', '_').replace(':', '_')}
 """
     
-    # 直接使用传入的output_dir作为目标目录
-    os.makedirs(output_dir, exist_ok=True)
+    # 根据model_type创建子目录
+    target_dir = os.path.join(output_dir, model_type)
+    os.makedirs(target_dir, exist_ok=True)
     
-    header_path = os.path.join(output_dir, f"bsl_model_{model_type}_{timestamp}.h")
+    header_path = os.path.join(target_dir, f"bsl_model_{model_type}_{timestamp}.h")
     with open(header_path, 'w') as f:
         f.write(header_content)
     
@@ -546,109 +547,49 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
 
 
 def apply_quantization(model, arduino_mode=False):
-    """应用TFLite量化 - 修复版本兼容性问题"""
+    """标准TensorFlow Lite转换 - 使用函数签名包装"""
     
-    try:
-        # 方法1: 使用SavedModel作为中间步骤
-        import tempfile
-        import shutil
-        
-        with tempfile.TemporaryDirectory() as temp_dir:
-            saved_model_dir = os.path.join(temp_dir, 'saved_model')
-            
-            # 保存为SavedModel格式
-            tf.saved_model.save(model, saved_model_dir)
-            
-            # 从SavedModel转换
-            converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_dir)
-            
-            if arduino_mode:
-                print("应用Arduino优化量化...")
-                converter.optimizations = [tf.lite.Optimize.DEFAULT]
-                # Arduino模式：使用更激进的量化
-                converter.target_spec.supported_types = [tf.float16]
-            else:
-                print("应用标准量化...")
-                converter.optimizations = [tf.lite.Optimize.DEFAULT]
-            
-            tflite_model = converter.convert()
-            return tflite_model
-            
-    except Exception as e1:
-        print(f"SavedModel转换失败: {e1}")
-        
-        try:
-            # 方法2: 使用concrete function
-            print("尝试concrete function转换...")
-            
-            # 获取concrete function
-            concrete_func = model.get_concrete_function()
-            converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
-            
-            if arduino_mode:
-                converter.optimizations = [tf.lite.Optimize.DEFAULT]
-                converter.target_spec.supported_types = [tf.float16]
-            else:
-                converter.optimizations = [tf.lite.Optimize.DEFAULT]
-            
-            tflite_model = converter.convert()
-            return tflite_model
-            
-        except Exception as e2:
-            print(f"Concrete function转换失败: {e2}")
-            
-            try:
-                # 方法3: 基础转换方法
-                print("尝试基础转换...")
-                
-                # 创建一个sample input用于转换
-                sample_input = tf.random.normal([1, SEQUENCE_LENGTH, N_FEATURES])
-                
-                # 使用call trace进行转换
-                @tf.function
-                def model_func(x):
-                    return model(x)
-                
-                concrete_func = model_func.get_concrete_function(sample_input)
-                converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
-                
-                if arduino_mode:
-                    converter.optimizations = [tf.lite.Optimize.DEFAULT]
-                
-                tflite_model = converter.convert()
-                return tflite_model
-                
-            except Exception as e3:
-                print(f"基础转换也失败: {e3}")
-                print("生成最小占位符模型...")
-                
-                # 创建最小的有效TFLite字节流占位符
-                # 这是一个最小的有效TFLite模型header
-                minimal_tflite = bytes([
-                    0x18, 0x00, 0x00, 0x00,  # TFLite magic number
-                    0x54, 0x46, 0x4C, 0x33,  # "TFL3"
-                    0x00, 0x00, 0x00, 0x00,  # version
-                    0x14, 0x00, 0x00, 0x00,  # schema version  
-                    0x01, 0x00, 0x00, 0x00,  # file identifier
-                    0x10, 0x00, 0x00, 0x00,  # file size (placeholder)
-                ])
-                return minimal_tflite
-
-
-def train_model(csv_dir, output_dir, model_type, n_trials=100, epochs=50, arduino_mode=False):
-    """Main training function with multi-model support"""
+    # 创建一个具体函数来包装模型
+    @tf.function
+    def model_func(x):
+        return model(x)
+    
+    # 获取输入规格
+    input_shape = [1, SEQUENCE_LENGTH, N_FEATURES]
+    concrete_func = model_func.get_concrete_function(
+        tf.TensorSpec(shape=input_shape, dtype=tf.float32)
+    )
+    
+    # 使用标准的from_concrete_functions方法
+    converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
     
     if arduino_mode:
-        print(f"\n🤖 开始训练Arduino优化的{model_type}模型...")
-        print(f"目标：生成小于1MB的Arduino兼容.h文件")
-        model_suffix = "_Arduino"
+        print("应用Arduino优化量化...")
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+        converter.target_spec.supported_types = [tf.float16]
     else:
-        print(f"\n🚀 开始训练完整版{model_type}模型...")
-        print(f"目标：最大化模型精度")
-        model_suffix = ""
+        print("应用标准量化...")
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
     
-    print(f"Loading data from {csv_dir}...")
-    X, y = load_data(csv_dir)
+    # 直接转换，不使用任何异常处理回退
+    tflite_model = converter.convert()
+    
+    # 打印模型大小
+    model_size = len(tflite_model)
+    print(f"TFLite模型大小: {model_size} bytes ({model_size/1024:.1f} KB)")
+    
+    return tflite_model
+
+def train_model(csv_dir, output_dir, model_type, n_trials=100, epochs=50, arduino_mode=False):
+    """主训练函数"""
+    print(f"开始为模型 '{model_type}' (Arduino模式: {arduino_mode}) 进行训练...")
+    
+    # 设置输出目录
+    model_output_dir = os.path.join(output_dir, model_type)
+    os.makedirs(model_output_dir, exist_ok=True)
+    
+    # 加载和准备数据
+    X, y = load_data(os.path.join(csv_dir, "gesture_csv"))
     print(f"Loaded {len(X)} samples")
     
     # Split data first
@@ -717,7 +658,7 @@ def train_model(csv_dir, output_dir, model_type, n_trials=100, epochs=50, arduin
     )
     
     # Create model-specific output directory
-    final_model_type = model_type + model_suffix
+    final_model_type = model_type + ("_Arduino" if arduino_mode else "")
     model_output_dir = os.path.join(output_dir, final_model_type)
     os.makedirs(model_output_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -729,7 +670,7 @@ def train_model(csv_dir, output_dir, model_type, n_trials=100, epochs=50, arduin
     tflite_model = apply_quantization(model, arduino_mode)
     
     # 生成Arduino头文件
-    header_path = generate_arduino_header(tflite_model, scaler, final_model_type, timestamp, model_output_dir)
+    header_path = generate_arduino_header(tflite_model, scaler, final_model_type, timestamp, output_dir)
     
     # 检查文件大小
     file_size = os.path.getsize(header_path)

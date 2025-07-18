@@ -1,0 +1,14 @@
+{
+  "best_params": {
+    "use_dropout": false,
+    "learning_rate": 0.0006558027951805999,
+    "batch_size": 16
+  },
+  "model_type": "Transformer_Encoder_Arduino",
+  "timestamp": "20250718_155504",
+  "arduino_mode": true,
+  "performance": {
+    "test_accuracy": 0.8787878751754761,
+    "test_loss": 0.406777560710907
+  }
+}
