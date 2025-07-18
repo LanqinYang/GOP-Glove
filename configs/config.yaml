@@ -230,7 +230,6 @@ paths:
     arduino: "models/arduino"
   
   # 日志和输出
-  logs: "logs"
   outputs: "outputs"
   docs: "docs"
 
