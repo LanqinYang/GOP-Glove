@@ -589,7 +589,7 @@ def train_model(csv_dir, output_dir, model_type, n_trials=100, epochs=50, arduin
     os.makedirs(model_output_dir, exist_ok=True)
     
     # 加载和准备数据
-    X, y = load_data(os.path.join(csv_dir, "gesture_csv"))
+    X, y = load_data(csv_dir)
     print(f"Loaded {len(X)} samples")
     
     # Split data first

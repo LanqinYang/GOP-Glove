@@ -1,0 +1,28 @@
+{
+  "best_params": {
+    "n_estimators": 311,
+    "max_depth": 4,
+    "learning_rate": 0.09494380893657836,
+    "subsample": 0.7991185970903363,
+    "colsample_bytree": 0.6586299236475277,
+    "gamma": 2.3367665530745994,
+    "min_child_weight": 1,
+    "reg_alpha": 0.40160499716822606,
+    "reg_lambda": 0.6612744170787399
+  },
+  "model_type": "XGBoost",
+  "timestamp": "20250722_022936",
+  "arduino_mode": false,
+  "performance": {
+    "train_acc": 0.9744318181818182,
+    "val_acc": 0.9318181818181818,
+    "test_acc": 0.8454545454545455
+  },
+  "model_info": {
+    "n_features": 50,
+    "n_classes": 11,
+    "file_size_mb": 0.43729591369628906,
+    "max_estimators": 1000,
+    "max_depth": 10
+  }
+}
