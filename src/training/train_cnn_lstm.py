@@ -403,28 +403,28 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     # 10. Generate visualizations
     print("\n10. Generating Visualizations:")
     
-    # Create figure with subplots - 2x4 layout to include training curves
-    fig, axes = plt.subplots(2, 4, figsize=(24, 12))
-    fig.suptitle(f'BSL Gesture Recognition Evaluation - {timestamp}', fontsize=16)
+    # Create figure with subplots - 3x3 layout to provide space for summary metrics
+    fig, axes = plt.subplots(3, 3, figsize=(22, 18))
+    fig.suptitle(f'BSL Gesture Recognition Evaluation - {timestamp}', fontsize=20)
     
-    # Confusion Matrix Heatmap
+    # Plot 1: Confusion Matrix
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
                 xticklabels=class_names, yticklabels=class_names,
                 ax=axes[0, 0])
-    axes[0, 0].set_title('Confusion Matrix')
+    axes[0, 0].set_title('Confusion Matrix', fontsize=14)
     axes[0, 0].set_ylabel('True Label')
     axes[0, 0].set_xlabel('Predicted Label')
     
-    # Per-class accuracy bar plot
+    # Plot 2: Per-class accuracy
     axes[0, 1].bar(range(N_CLASSES), per_class_acc, color='skyblue')
-    axes[0, 1].set_title('Per-Class Accuracy')
+    axes[0, 1].set_title('Per-Class Accuracy', fontsize=14)
     axes[0, 1].set_xlabel('Class')
     axes[0, 1].set_ylabel('Accuracy')
     axes[0, 1].set_xticks(range(N_CLASSES))
-    axes[0, 1].set_xticklabels(class_names, rotation=45)
+    axes[0, 1].set_xticklabels(class_names, rotation=45, ha='right')
     axes[0, 1].set_ylim(0, 1)
     
-    # Class distribution comparison
+    # Plot 3: Class distribution
     x = np.arange(N_CLASSES)
     width = 0.35
     true_counts = [y_test_counts.get(i, 0) for i in range(N_CLASSES)]
@@ -432,23 +432,23 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     
     axes[0, 2].bar(x - width/2, true_counts, width, label='True', color='lightcoral')
     axes[0, 2].bar(x + width/2, pred_counts, width, label='Predicted', color='lightblue')
-    axes[0, 2].set_title('Class Distribution')
+    axes[0, 2].set_title('Class Distribution', fontsize=14)
     axes[0, 2].set_xlabel('Class')
     axes[0, 2].set_ylabel('Count')
     axes[0, 2].set_xticks(x)
-    axes[0, 2].set_xticklabels(class_names, rotation=45)
+    axes[0, 2].set_xticklabels(class_names, rotation=45, ha='right')
     axes[0, 2].legend()
     
-    # Confidence score distribution
+    # Plot 4: Confidence score distribution
     axes[1, 0].hist(confidence_scores, bins=20, alpha=0.7, color='green')
     axes[1, 0].axvline(np.mean(confidence_scores), color='red', linestyle='--', 
                        label=f'Mean: {np.mean(confidence_scores):.3f}')
-    axes[1, 0].set_title('Confidence Score Distribution')
+    axes[1, 0].set_title('Confidence Score Distribution', fontsize=14)
     axes[1, 0].set_xlabel('Confidence Score')
     axes[1, 0].set_ylabel('Frequency')
     axes[1, 0].legend()
     
-    # Precision, Recall, F1-Score comparison
+    # Plot 5: Precision, Recall, F1-Score by Class
     metrics = ['precision', 'recall', 'f1-score']
     metric_values = np.array([[report[class_names[i]][metric] for i in range(N_CLASSES)] 
                              for metric in metrics])
@@ -458,58 +458,78 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     for i, metric in enumerate(metrics):
         axes[1, 1].bar(x + i*width, metric_values[i], width, label=metric, alpha=0.8)
     
-    axes[1, 1].set_title('Precision, Recall, F1-Score by Class')
+    axes[1, 1].set_title('Precision, Recall, F1-Score by Class', fontsize=14)
     axes[1, 1].set_xlabel('Class')
     axes[1, 1].set_ylabel('Score')
     axes[1, 1].set_xticks(x + width)
-    axes[1, 1].set_xticklabels(class_names, rotation=45)
+    axes[1, 1].set_xticklabels(class_names, rotation=45, ha='right')
     axes[1, 1].legend()
     axes[1, 1].set_ylim(0, 1)
     
-    # Error analysis
+    # Plot 6: Errors by Class
     correct = (y_pred == y_test)
     error_by_class = [np.sum((y_test == i) & ~correct) for i in range(N_CLASSES)]
     axes[1, 2].bar(range(N_CLASSES), error_by_class, color='red', alpha=0.7)
-    axes[1, 2].set_title('Errors by Class')
+    axes[1, 2].set_title('Errors by Class', fontsize=14)
     axes[1, 2].set_xlabel('Class')
     axes[1, 2].set_ylabel('Number of Errors')
     axes[1, 2].set_xticks(range(N_CLASSES))
-    axes[1, 2].set_xticklabels(class_names, rotation=45)
+    axes[1, 2].set_xticklabels(class_names, rotation=45, ha='right')
     
-    # Training history curves (if available)
+    # Plots 7 & 8: Training history
     if history is not None:
-        # Training & Validation Accuracy
         epochs_range = range(1, len(history.history['accuracy']) + 1)
-        axes[0, 3].plot(epochs_range, history.history['accuracy'], 'b-', label='Training Accuracy', linewidth=2)
-        axes[0, 3].plot(epochs_range, history.history['val_accuracy'], 'r-', label='Validation Accuracy', linewidth=2)
-        axes[0, 3].set_title('Training & Validation Accuracy')
-        axes[0, 3].set_xlabel('Epochs')
-        axes[0, 3].set_ylabel('Accuracy')
-        axes[0, 3].legend()
-        axes[0, 3].grid(True, alpha=0.3)
-        axes[0, 3].set_ylim(0, 1.05)
+        axes[2, 0].plot(epochs_range, history.history['accuracy'], 'b-', label='Training Accuracy', linewidth=2)
+        axes[2, 0].plot(epochs_range, history.history['val_accuracy'], 'r-', label='Validation Accuracy', linewidth=2)
+        axes[2, 0].set_title('Training & Validation Accuracy', fontsize=14)
+        axes[2, 0].set_xlabel('Epochs')
+        axes[2, 0].set_ylabel('Accuracy')
+        axes[2, 0].legend()
+        axes[2, 0].grid(True, alpha=0.3)
+        axes[2, 0].set_ylim(0, 1.05)
         
-        # Training & Validation Loss
-        axes[1, 3].plot(epochs_range, history.history['loss'], 'b-', label='Training Loss', linewidth=2)
-        axes[1, 3].plot(epochs_range, history.history['val_loss'], 'r-', label='Validation Loss', linewidth=2)
-        axes[1, 3].set_title('Training & Validation Loss')
-        axes[1, 3].set_xlabel('Epochs')
-        axes[1, 3].set_ylabel('Loss')
-        axes[1, 3].legend()
-        axes[1, 3].grid(True, alpha=0.3)
-        axes[1, 3].set_yscale('log')  # Log scale for better loss visualization
+        axes[2, 1].plot(epochs_range, history.history['loss'], 'b-', label='Training Loss', linewidth=2)
+        axes[2, 1].plot(epochs_range, history.history['val_loss'], 'r-', label='Validation Loss', linewidth=2)
+        axes[2, 1].set_title('Training & Validation Loss', fontsize=14)
+        axes[2, 1].set_xlabel('Epochs')
+        axes[2, 1].set_ylabel('Loss')
+        axes[2, 1].legend()
+        axes[2, 1].grid(True, alpha=0.3)
+        axes[2, 1].set_yscale('log')
     else:
-        # If no history available, show placeholder
-        axes[0, 3].text(0.5, 0.5, 'Training History\nNot Available', 
-                       horizontalalignment='center', verticalalignment='center',
-                       transform=axes[0, 3].transAxes, fontsize=14)
-        axes[0, 3].set_title('Training Accuracy')
-        axes[1, 3].text(0.5, 0.5, 'Training History\nNot Available', 
-                       horizontalalignment='center', verticalalignment='center',
-                       transform=axes[1, 3].transAxes, fontsize=14)
-        axes[1, 3].set_title('Training Loss')
+        for i in range(2):
+            axes[2, i].text(0.5, 0.5, 'Training History\nNot Available', 
+                           horizontalalignment='center', verticalalignment='center',
+                           transform=axes[2, i].transAxes, fontsize=14)
+            axes[2, i].set_title(f'Training History {i+1}', fontsize=14)
+            axes[2, i].axis('off')
+
+    # Plot 9: Overall Metrics Summary
+    axes[2, 2].axis('off')
+    axes[2, 2].set_title('Overall Metrics', fontsize=14, pad=20)
     
-    plt.tight_layout()
+    macro_f1 = report['macro avg']['f1-score']
+    macro_precision = report['macro avg']['precision']
+    macro_recall = report['macro avg']['recall']
+
+    metrics_text = (
+        f"Overall Accuracy: {test_acc:.4f}\n\n"
+        f"Macro Average:\n"
+        f"  - F1-Score:   {macro_f1:.4f}\n"
+        f"  - Precision:  {macro_precision:.4f}\n"
+        f"  - Recall:     {macro_recall:.4f}"
+    )
+
+    axes[2, 2].text(0.5, 0.5, metrics_text, 
+                    horizontalalignment='center', 
+                    verticalalignment='center',
+                    fontsize=14,
+                    fontfamily='monospace',
+                    transform=axes[2, 2].transAxes,
+                    bbox=dict(boxstyle="round,pad=0.5", fc='aliceblue', ec='black', lw=1))
+    
+    # Adjust layout and save
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
     
     # Save visualization
     viz_path = os.path.join(output_dir, f'evaluation_plots_{timestamp}.png')

@@ -1,5 +1,5 @@
 """
-BSL Gesture Recognition Training
+BSL Gesture Recognition Training - CNN-1D
 Author: Lambert Yang
 """
 
@@ -139,68 +139,41 @@ def create_model(params, arduino_mode=False):
 
 def generate_arduino_header(tflite_model, scaler, model_type, timestamp, output_dir):
     """生成一个简洁的Arduino头文件，包含模型和归一化参数。"""
-    
-    # 处理模型数据
-    if isinstance(tflite_model, bytes) and len(tflite_model) > 0:
-        model_hex = ', '.join(f'0x{b:02x}' for b in tflite_model)
-        model_size = len(tflite_model)
-        is_valid_model = True
-    else:
-        # 如果模型转换失败，使用占位符
-        model_hex = "0x00, 0x00, 0x00, 0x00  // 占位符：TFLite转换失败"
-        model_size = 4
-        is_valid_model = False
-    
+    model_hex = ', '.join(f'0x{b:02x}' for b in tflite_model)
     mean_values = ', '.join(f'{val:.8f}f' for val in scaler.mean_)
     scale_values = ', '.join(f'{val:.8f}f' for val in scaler.scale_)
-    
-    # 添加模型状态注释
-    model_status = "有效的TFLite模型" if is_valid_model else "占位符模型 - TFLite转换失败"
     
     header_content = f"""/*
  * BSL Gesture Recognition Model
  *
  * Model Type: {model_type}
  * Timestamp:  {timestamp}
- * Model Size: {model_size} bytes
- * Status:     {model_status}
- * 
- * 归一化参数来自训练数据的StandardScaler
+ * Model Size: {len(tflite_model)} bytes
  */
 
-#ifndef BSL_MODEL_H_{timestamp.replace('-', '_').replace(':', '_')}
-#define BSL_MODEL_H_{timestamp.replace('-', '_').replace(':', '_')}
+#ifndef BSL_MODEL_H_{timestamp}
+#define BSL_MODEL_H_{timestamp}
 
-// 模型配置
+// Feature count for normalization
 const int BSL_MODEL_FEATURES = {len(scaler.mean_)};
-const int BSL_MODEL_CLASSES = 11;
-const bool BSL_MODEL_VALID = {'true' if is_valid_model else 'false'};
 
-// 归一化参数 (StandardScaler)
+// Normalization parameters (StandardScaler)
 const float scaler_mean[BSL_MODEL_FEATURES] = {{ {mean_values} }};
 const float scaler_scale[BSL_MODEL_FEATURES] = {{ {scale_values} }};
 
-// 归一化函数
-inline void normalize_features(float* features, int length) {{
-    for (int i = 0; i < length && i < BSL_MODEL_FEATURES; i++) {{
-        features[i] = (features[i] - scaler_mean[i]) / scaler_scale[i];
-    }}
-}}
-
-// TFLite模型数据
+// TFLite model data
 alignas(16) const unsigned char model_data[] = {{
     {model_hex}
 }};
-const unsigned int model_data_len = {model_size};
+const unsigned int model_data_len = {len(tflite_model)};
 
-#endif // BSL_MODEL_H_{timestamp.replace('-', '_').replace(':', '_')}
+#endif // BSL_MODEL_H_{timestamp}
 """
     
-    # 根据model_type创建子目录
-    target_dir = os.path.join(output_dir, model_type)
-    os.makedirs(target_dir, exist_ok=True)
+    arduino_dir = os.path.join(output_dir, model_type)
+    os.makedirs(arduino_dir, exist_ok=True)
     
-    header_path = os.path.join(target_dir, f"bsl_model_{model_type}_{timestamp}.h")
+    header_path = os.path.join(arduino_dir, f"bsl_model_{model_type}_{timestamp}.h")
     with open(header_path, 'w') as f:
         f.write(header_content)
     
@@ -410,28 +383,28 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     # 10. Generate visualizations
     print("\n10. Generating Visualizations:")
     
-    # Create figure with subplots - 2x4 layout to include training curves
-    fig, axes = plt.subplots(2, 4, figsize=(24, 12))
-    fig.suptitle(f'BSL Gesture Recognition Evaluation - {timestamp}', fontsize=16)
+    # Create figure with subplots - 3x3 layout to provide space for summary metrics
+    fig, axes = plt.subplots(3, 3, figsize=(22, 18))
+    fig.suptitle(f'BSL Gesture Recognition Evaluation - {timestamp}', fontsize=20)
     
-    # Confusion Matrix Heatmap
+    # Plot 1: Confusion Matrix
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
                 xticklabels=class_names, yticklabels=class_names,
                 ax=axes[0, 0])
-    axes[0, 0].set_title('Confusion Matrix')
+    axes[0, 0].set_title('Confusion Matrix', fontsize=14)
     axes[0, 0].set_ylabel('True Label')
     axes[0, 0].set_xlabel('Predicted Label')
     
-    # Per-class accuracy bar plot
+    # Plot 2: Per-class accuracy
     axes[0, 1].bar(range(N_CLASSES), per_class_acc, color='skyblue')
-    axes[0, 1].set_title('Per-Class Accuracy')
+    axes[0, 1].set_title('Per-Class Accuracy', fontsize=14)
     axes[0, 1].set_xlabel('Class')
     axes[0, 1].set_ylabel('Accuracy')
     axes[0, 1].set_xticks(range(N_CLASSES))
-    axes[0, 1].set_xticklabels(class_names, rotation=45)
+    axes[0, 1].set_xticklabels(class_names, rotation=45, ha='right')
     axes[0, 1].set_ylim(0, 1)
     
-    # Class distribution comparison
+    # Plot 3: Class distribution
     x = np.arange(N_CLASSES)
     width = 0.35
     true_counts = [y_test_counts.get(i, 0) for i in range(N_CLASSES)]
@@ -439,23 +412,23 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     
     axes[0, 2].bar(x - width/2, true_counts, width, label='True', color='lightcoral')
     axes[0, 2].bar(x + width/2, pred_counts, width, label='Predicted', color='lightblue')
-    axes[0, 2].set_title('Class Distribution')
+    axes[0, 2].set_title('Class Distribution', fontsize=14)
     axes[0, 2].set_xlabel('Class')
     axes[0, 2].set_ylabel('Count')
     axes[0, 2].set_xticks(x)
-    axes[0, 2].set_xticklabels(class_names, rotation=45)
+    axes[0, 2].set_xticklabels(class_names, rotation=45, ha='right')
     axes[0, 2].legend()
     
-    # Confidence score distribution
+    # Plot 4: Confidence score distribution
     axes[1, 0].hist(confidence_scores, bins=20, alpha=0.7, color='green')
     axes[1, 0].axvline(np.mean(confidence_scores), color='red', linestyle='--', 
                        label=f'Mean: {np.mean(confidence_scores):.3f}')
-    axes[1, 0].set_title('Confidence Score Distribution')
+    axes[1, 0].set_title('Confidence Score Distribution', fontsize=14)
     axes[1, 0].set_xlabel('Confidence Score')
     axes[1, 0].set_ylabel('Frequency')
     axes[1, 0].legend()
     
-    # Precision, Recall, F1-Score comparison
+    # Plot 5: Precision, Recall, F1-Score by Class
     metrics = ['precision', 'recall', 'f1-score']
     metric_values = np.array([[report[class_names[i]][metric] for i in range(N_CLASSES)] 
                              for metric in metrics])
@@ -465,58 +438,78 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     for i, metric in enumerate(metrics):
         axes[1, 1].bar(x + i*width, metric_values[i], width, label=metric, alpha=0.8)
     
-    axes[1, 1].set_title('Precision, Recall, F1-Score by Class')
+    axes[1, 1].set_title('Precision, Recall, F1-Score by Class', fontsize=14)
     axes[1, 1].set_xlabel('Class')
     axes[1, 1].set_ylabel('Score')
     axes[1, 1].set_xticks(x + width)
-    axes[1, 1].set_xticklabels(class_names, rotation=45)
+    axes[1, 1].set_xticklabels(class_names, rotation=45, ha='right')
     axes[1, 1].legend()
     axes[1, 1].set_ylim(0, 1)
     
-    # Error analysis
+    # Plot 6: Errors by Class
     correct = (y_pred == y_test)
     error_by_class = [np.sum((y_test == i) & ~correct) for i in range(N_CLASSES)]
     axes[1, 2].bar(range(N_CLASSES), error_by_class, color='red', alpha=0.7)
-    axes[1, 2].set_title('Errors by Class')
+    axes[1, 2].set_title('Errors by Class', fontsize=14)
     axes[1, 2].set_xlabel('Class')
     axes[1, 2].set_ylabel('Number of Errors')
     axes[1, 2].set_xticks(range(N_CLASSES))
-    axes[1, 2].set_xticklabels(class_names, rotation=45)
+    axes[1, 2].set_xticklabels(class_names, rotation=45, ha='right')
     
-    # Training history curves (if available)
+    # Plots 7 & 8: Training history
     if history is not None:
-        # Training & Validation Accuracy
         epochs_range = range(1, len(history.history['accuracy']) + 1)
-        axes[0, 3].plot(epochs_range, history.history['accuracy'], 'b-', label='Training Accuracy', linewidth=2)
-        axes[0, 3].plot(epochs_range, history.history['val_accuracy'], 'r-', label='Validation Accuracy', linewidth=2)
-        axes[0, 3].set_title('Training & Validation Accuracy')
-        axes[0, 3].set_xlabel('Epochs')
-        axes[0, 3].set_ylabel('Accuracy')
-        axes[0, 3].legend()
-        axes[0, 3].grid(True, alpha=0.3)
-        axes[0, 3].set_ylim(0, 1.05)
+        axes[2, 0].plot(epochs_range, history.history['accuracy'], 'b-', label='Training Accuracy', linewidth=2)
+        axes[2, 0].plot(epochs_range, history.history['val_accuracy'], 'r-', label='Validation Accuracy', linewidth=2)
+        axes[2, 0].set_title('Training & Validation Accuracy', fontsize=14)
+        axes[2, 0].set_xlabel('Epochs')
+        axes[2, 0].set_ylabel('Accuracy')
+        axes[2, 0].legend()
+        axes[2, 0].grid(True, alpha=0.3)
+        axes[2, 0].set_ylim(0, 1.05)
         
-        # Training & Validation Loss
-        axes[1, 3].plot(epochs_range, history.history['loss'], 'b-', label='Training Loss', linewidth=2)
-        axes[1, 3].plot(epochs_range, history.history['val_loss'], 'r-', label='Validation Loss', linewidth=2)
-        axes[1, 3].set_title('Training & Validation Loss')
-        axes[1, 3].set_xlabel('Epochs')
-        axes[1, 3].set_ylabel('Loss')
-        axes[1, 3].legend()
-        axes[1, 3].grid(True, alpha=0.3)
-        axes[1, 3].set_yscale('log')  # Log scale for better loss visualization
+        axes[2, 1].plot(epochs_range, history.history['loss'], 'b-', label='Training Loss', linewidth=2)
+        axes[2, 1].plot(epochs_range, history.history['val_loss'], 'r-', label='Validation Loss', linewidth=2)
+        axes[2, 1].set_title('Training & Validation Loss', fontsize=14)
+        axes[2, 1].set_xlabel('Epochs')
+        axes[2, 1].set_ylabel('Loss')
+        axes[2, 1].legend()
+        axes[2, 1].grid(True, alpha=0.3)
+        axes[2, 1].set_yscale('log')
     else:
-        # If no history available, show placeholder
-        axes[0, 3].text(0.5, 0.5, 'Training History\nNot Available', 
-                       horizontalalignment='center', verticalalignment='center',
-                       transform=axes[0, 3].transAxes, fontsize=14)
-        axes[0, 3].set_title('Training Accuracy')
-        axes[1, 3].text(0.5, 0.5, 'Training History\nNot Available', 
-                       horizontalalignment='center', verticalalignment='center',
-                       transform=axes[1, 3].transAxes, fontsize=14)
-        axes[1, 3].set_title('Training Loss')
+        for i in range(2):
+            axes[2, i].text(0.5, 0.5, 'Training History\nNot Available', 
+                           horizontalalignment='center', verticalalignment='center',
+                           transform=axes[2, i].transAxes, fontsize=14)
+            axes[2, i].set_title(f'Training History {i+1}', fontsize=14)
+            axes[2, i].axis('off')
+
+    # Plot 9: Overall Metrics Summary
+    axes[2, 2].axis('off')
+    axes[2, 2].set_title('Overall Metrics', fontsize=14, pad=20)
     
-    plt.tight_layout()
+    macro_f1 = report['macro avg']['f1-score']
+    macro_precision = report['macro avg']['precision']
+    macro_recall = report['macro avg']['recall']
+
+    metrics_text = (
+        f"Overall Accuracy: {test_acc:.4f}\n\n"
+        f"Macro Average:\n"
+        f"  - F1-Score:   {macro_f1:.4f}\n"
+        f"  - Precision:  {macro_precision:.4f}\n"
+        f"  - Recall:     {macro_recall:.4f}"
+    )
+
+    axes[2, 2].text(0.5, 0.5, metrics_text, 
+                    horizontalalignment='center', 
+                    verticalalignment='center',
+                    fontsize=14,
+                    fontfamily='monospace',
+                    transform=axes[2, 2].transAxes,
+                    bbox=dict(boxstyle="round,pad=0.5", fc='aliceblue', ec='black', lw=1))
+    
+    # Adjust layout and save
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
     
     # Save visualization
     viz_path = os.path.join(output_dir, f'evaluation_plots_{timestamp}.png')
@@ -546,49 +539,18 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     return eval_results
 
 
-def apply_quantization(model, arduino_mode=False):
-    """标准TensorFlow Lite转换 - 使用函数签名包装"""
-    
-    # 创建一个具体函数来包装模型
-    @tf.function
-    def model_func(x):
-        return model(x)
-    
-    # 获取输入规格
-    input_shape = [1, SEQUENCE_LENGTH, N_FEATURES]
-    concrete_func = model_func.get_concrete_function(
-        tf.TensorSpec(shape=input_shape, dtype=tf.float32)
-    )
-    
-    # 使用标准的from_concrete_functions方法
-    converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
-    
-    if arduino_mode:
-        print("应用Arduino优化量化...")
-        converter.optimizations = [tf.lite.Optimize.DEFAULT]
-        converter.target_spec.supported_types = [tf.float16]
-    else:
-        print("应用标准量化...")
-        converter.optimizations = [tf.lite.Optimize.DEFAULT]
-    
-    # 直接转换，不使用任何异常处理回退
-    tflite_model = converter.convert()
-    
-    # 打印模型大小
-    model_size = len(tflite_model)
-    print(f"TFLite模型大小: {model_size} bytes ({model_size/1024:.1f} KB)")
-    
-    return tflite_model
-
 def train_model(csv_dir, output_dir, model_type, n_trials=100, epochs=50, arduino_mode=False):
     """主训练函数"""
-    print(f"开始为模型 '{model_type}' (Arduino模式: {arduino_mode}) 进行训练...")
-    
-    # 设置输出目录
-    model_output_dir = os.path.join(output_dir, model_type)
-    os.makedirs(model_output_dir, exist_ok=True)
-    
-    # 加载和准备数据
+    if arduino_mode:
+        print(f"\n🤖 开始训练Arduino优化的{model_type}模型...")
+        print(f"目标：生成小于1MB的Arduino兼容.h文件")
+        model_suffix = "_Arduino"
+    else:
+        print(f"\n🚀 开始训练完整版{model_type}模型...")
+        print(f"目标：最大化模型精度")
+        model_suffix = ""
+
+    print(f"Loading data from {csv_dir}...")
     X, y = load_data(csv_dir)
     print(f"Loaded {len(X)} samples")
     
@@ -658,7 +620,7 @@ def train_model(csv_dir, output_dir, model_type, n_trials=100, epochs=50, arduin
     )
     
     # Create model-specific output directory
-    final_model_type = model_type + ("_Arduino" if arduino_mode else "")
+    final_model_type = model_type + model_suffix
     model_output_dir = os.path.join(output_dir, final_model_type)
     os.makedirs(model_output_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -666,8 +628,58 @@ def train_model(csv_dir, output_dir, model_type, n_trials=100, epochs=50, arduin
     print(f"\nUsing model type: {final_model_type}")
     print(f"Saving to: {model_output_dir}")
     
-    # 应用量化
-    tflite_model = apply_quantization(model, arduino_mode)
+    # Save model (H5 format for compatibility)
+    model_path = os.path.join(model_output_dir, f"bsl_model_{final_model_type}_{timestamp}.h5")
+    model.save(model_path)
+    
+    # Save scaler with timestamp
+    scaler_path = os.path.join(model_output_dir, f'scaler_{final_model_type}_{timestamp}.pkl')
+    with open(scaler_path, 'wb') as f:
+        pickle.dump(scaler, f)
+
+    # Save parameters
+    test_loss, test_accuracy = model.evaluate(X_test_scaled, y_test, verbose=0)
+    params_path = os.path.join(model_output_dir, f'params_{final_model_type}_{timestamp}.json')
+    with open(params_path, 'w') as f:
+        json.dump({
+            'best_params': best_params,
+            'model_type': final_model_type,
+            'timestamp': timestamp,
+            'arduino_mode': arduino_mode,
+            'performance': {
+                'test_accuracy': float(test_accuracy),
+                'test_loss': float(test_loss)
+            }
+        }, f, indent=2)
+
+    # 应用量化 - 使用函数包装解决兼容性问题
+    @tf.function
+    def model_func(x):
+        return model(x)
+    
+    # 获取输入规格
+    input_shape = [1, SEQUENCE_LENGTH, N_FEATURES]
+    concrete_func = model_func.get_concrete_function(
+        tf.TensorSpec(shape=input_shape, dtype=tf.float32)
+    )
+    
+    # 使用标准的from_concrete_functions方法
+    converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
+    
+    if arduino_mode:
+        print("应用Arduino优化量化...")
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+        converter.target_spec.supported_types = [tf.float16]
+    else:
+        print("应用标准量化...")
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+    
+    # 直接转换，不使用任何异常处理回退
+    tflite_model = converter.convert()
+
+    # 打印模型大小
+    model_size = len(tflite_model)
+    print(f"TFLite模型大小: {model_size} bytes ({model_size/1024:.1f} KB)")
     
     # 生成Arduino头文件
     header_path = generate_arduino_header(tflite_model, scaler, final_model_type, timestamp, output_dir)
@@ -686,44 +698,29 @@ def train_model(csv_dir, output_dir, model_type, n_trials=100, epochs=50, arduin
             print("✅ 文件大小符合Arduino要求！")
     else:
         print(f"ℹ️  完整版模型文件大小：{file_size_mb:.2f} MB")
-    
-    # Create TFLite file if conversion succeeded
-    if tflite_model != b"TFLITE_CONVERSION_FAILED":
-        tflite_path = os.path.join(model_output_dir, f"bsl_model_{final_model_type}_{timestamp}.tflite")
-        with open(tflite_path, 'wb') as f:
-            f.write(tflite_model)
-        print(f"TFLite model: {tflite_path} ({len(tflite_model)/1024:.1f} KB)")
-    
-    # Save the model and scaler
-    model_path = os.path.join(model_output_dir, f"bsl_model_{final_model_type}_{timestamp}.keras")
-    model.save(model_path)
-    
-    scaler_path = os.path.join(model_output_dir, f"scaler_{final_model_type}_{timestamp}.pkl")
-    with open(scaler_path, 'wb') as f:
-        pickle.dump(scaler, f)
-    
+
+    # Create TFLite file
+    tflite_path = os.path.join(model_output_dir, f"bsl_model_{final_model_type}_{timestamp}.tflite")
+    with open(tflite_path, 'wb') as f:
+        f.write(tflite_model)
+    print(f"TFLite model: {tflite_path} ({len(tflite_model)/1024:.1f} KB)")
+
     # COMPREHENSIVE EVALUATION
     # Define class names for better readability in evaluation reports
     class_names = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Static']
-    eval_results = comprehensive_evaluation(model, X_test_scaled, y_test, scaler, model_output_dir, f"{final_model_type}_{timestamp}", history, class_names)
-
-    # 保存模型参数
-    params_path = os.path.join(model_output_dir, f"params_{final_model_type}_{timestamp}.json")
+    comprehensive_evaluation(model, X_test_scaled, y_test, scaler, model_output_dir, f"{final_model_type}_{timestamp}", history, class_names)
+    
+    # 重新获取测试准确率和损失，因为它们可能在评估函数中计算
     test_loss, test_accuracy = model.evaluate(X_test_scaled, y_test, verbose=0)
     
-    with open(params_path, 'w') as f:
-        json.dump({
-            'best_params': best_params,
-            'model_type': final_model_type,
-            'timestamp': timestamp,
-            'arduino_mode': arduino_mode,
-            'performance': {
-                'test_accuracy': float(test_accuracy),
-                'test_loss': float(test_loss)
-            },
-            'file_size_mb': file_size_mb
-        }, f, indent=2)
-    
+    # 更新参数文件，包含文件大小
+    with open(params_path, 'r+') as f:
+        params_data = json.load(f)
+        params_data['file_size_mb'] = file_size_mb
+        f.seek(0)
+        json.dump(params_data, f, indent=2)
+        f.truncate()
+
     print(f"\nModel saved: {model_path}")
     print(f"Scaler saved: {scaler_path}")
     print(f"Arduino header: {header_path}")
@@ -748,4 +745,4 @@ if __name__ == "__main__":
                        help='使用Arduino优化模式（文件<1MB，但精度稍低）')
     args = parser.parse_args()
     
-    train_model(args.csv_dir, args.output_dir, args.model_type, args.n_trials, args.epochs, args.arduino) 
+    train_model(args.csv_dir, args.output_dir, args.model_type, args.n_trials, args.epochs, args.arduino)
