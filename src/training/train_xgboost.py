@@ -47,9 +47,9 @@ ARDUINO_MAX_DEPTH = 4
 
 
 def load_data(csv_dir):
-    """Load and preprocess data"""
+    """Load and preprocess data, extracting subject IDs for LOSO."""
     csv_files = glob.glob(os.path.join(csv_dir, "*.csv"))
-    all_data, all_labels = [], []
+    all_data, all_labels, all_subjects = [], [], []
     
     for csv_file in csv_files:
         try:
@@ -79,13 +79,26 @@ def load_data(csv_dir):
                     data = resampled
                 
                 # Extract gesture ID
-                gesture_id = int(re.search(r'gesture_(\d+)', csv_file).group(1))
+                gesture_id_match = re.search(r'gesture_(\d+)', csv_file)
+                if not gesture_id_match:
+                    continue
+                gesture_id = int(gesture_id_match.group(1))
+
+                # Extract subject ID
+                subject_id_match = re.search(r'user_(\d+)', csv_file)
+                if subject_id_match:
+                    subject_id = int(subject_id_match.group(1))
+                else:
+                    subject_id = -1
+                
                 all_data.append(data)
                 all_labels.append(gesture_id)
-        except:
+                all_subjects.append(subject_id)
+        except Exception as e:
+            print(f"Warning: Could not process file {csv_file}. Error: {e}")
             continue
     
-    return np.array(all_data), np.array(all_labels)
+    return np.array(all_data), np.array(all_labels), np.array(all_subjects)
 
 
 def extract_features_full(X):
@@ -270,7 +283,7 @@ void normalize_features(float* features, int length) {{
     return header_path
 
 
-def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestamp, history=None, class_names=None):
+def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestamp, history=None, class_names=None, fold_summary=None):
     """
     Comprehensive model evaluation with detailed metrics and visualizations
     """
@@ -493,6 +506,15 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
         f"  - Recall:     {macro_recall:.4f}"
     )
 
+    if fold_summary:
+        metrics_text += (
+            f"\n\nLOSO Summary:\n"
+            f"  - Avg Accuracy: {fold_summary['avg_accuracy']:.4f}\n"
+            f"  - Std Accuracy: {fold_summary['std_accuracy']:.4f}\n"
+            f"  - Avg F1:       {fold_summary['avg_f1']:.4f}\n"
+            f"  - Std F1:       {fold_summary['std_f1']:.4f}"
+        )
+
     axes[2, 2].text(0.5, 0.5, metrics_text, 
                     horizontalalignment='center', 
                     verticalalignment='center',
@@ -676,6 +698,126 @@ def train_model(csv_dir, output_dir, n_trials=50, model_type="XGBoost", arduino_
                            class_names=[f'Gesture_{i}' for i in range(N_CLASSES)])
     
     return model, scaler, header_path
+
+
+def train_loso_model(csv_dir, output_dir, model_type, n_trials=50, arduino_mode=False):
+    """
+    使用“留一被试法”（LOSO）交叉验证来训练和评估XGBoost模型。
+    """
+    model_suffix = "_Arduino" if arduino_mode else ""
+    final_model_type = model_type + model_suffix
+    
+    print(f"\n🚀 开始对 {final_model_type} 模型进行LOSO训练...")
+    X, y, subjects = load_data(csv_dir)
+    
+    unique_subjects = np.unique(subjects)
+    unique_subjects = unique_subjects[unique_subjects != -1]
+
+    if len(unique_subjects) < 2:
+        print("❌错误：LOSO训练至少需要2个被试。请检查您的数据和文件名。")
+        return
+
+    print(f"从 {len(unique_subjects)} 个被试中加载了 {len(X)} 个样本。")
+
+    all_fold_evaluations = []
+    class_names = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Static']
+    model_output_dir = os.path.join(output_dir, final_model_type)
+    os.makedirs(model_output_dir, exist_ok=True)
+    
+    extract_features = extract_features_arduino if arduino_mode else extract_features_full
+    
+    for subject_id in unique_subjects:
+        print(f"\n{'='*20} LOSO轮次：在被试 {subject_id} 上测试 {'='*20}")
+        
+        test_indices = np.where(subjects == subject_id)[0]
+        train_indices = np.where(subjects != subject_id)[0]
+        
+        X_train_full, y_train_full = X[train_indices], y[train_indices]
+        X_test, y_test = X[test_indices], y[test_indices]
+        
+        X_train_full_feat = extract_features(X_train_full)
+        X_test_feat = extract_features(X_test)
+        
+        X_train_feat, X_val_feat, y_train, y_val = train_test_split(
+            X_train_full_feat, y_train_full, test_size=VAL_SIZE, random_state=SEED, stratify=y_train_full
+        )
+        
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train_feat)
+        X_val_scaled = scaler.transform(X_val_feat)
+        X_test_scaled = scaler.transform(X_test_feat)
+        
+        print(f"为被试 {subject_id} 优化超参数...")
+        study = optuna.create_study(direction='maximize')
+        objective_func = objective_arduino if arduino_mode else objective_full
+        study.optimize(lambda trial: objective_func(trial, X_train_scaled, y_train, X_val_scaled, y_val), n_trials=n_trials)
+        
+        best_params = study.best_params
+        model = xgb.XGBClassifier(objective='multi:softmax', num_class=N_CLASSES, eval_metric='mlogloss', seed=SEED, **best_params)
+        model.fit(X_train_scaled, y_train)
+        
+        fold_timestamp = f"{final_model_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_subject_{subject_id}"
+        eval_results = comprehensive_evaluation(model, X_test_scaled, y_test, scaler, model_output_dir, fold_timestamp, class_names=class_names)
+        all_fold_evaluations.append(eval_results)
+    
+    accuracies = [eval_res['test_accuracy'] for eval_res in all_fold_evaluations]
+    f1_scores = [eval_res['classification_report']['macro avg']['f1-score'] for eval_res in all_fold_evaluations]
+    
+    summary = {
+        'model_type': final_model_type,
+        'mean_test_accuracy': np.mean(accuracies),
+        'std_test_accuracy': np.std(accuracies),
+        'mean_macro_f1_score': np.mean(f1_scores),
+        'std_macro_f1_score': np.std(f1_scores),
+        'fold_evaluations': all_fold_evaluations
+    }
+    
+    summary_path = os.path.join(output_dir, f'loso_summary_{final_model_type}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json')
+    with open(summary_path, 'w') as f:
+        json.dump(summary, f, indent=2)
+    print(f"LOSO摘要报告已保存至: {summary_path}")
+
+    # --- 最终部署模型训练 ---
+    print(f"\n{'='*20} 训练最终部署模型 {'='*20}")
+    
+    X_features_final = extract_features(X)
+    X_train_final, X_test_final, y_train_final, y_test_final = train_test_split(
+        X_features_final, y, test_size=0.1, random_state=SEED, stratify=y
+    )
+    
+    X_train_opt, X_val_opt, y_train_opt, y_val_opt = train_test_split(
+        X_train_final, y_train_final, test_size=VAL_SIZE, random_state=SEED, stratify=y_train_final
+    )
+    
+    final_scaler = StandardScaler()
+    X_train_opt_scaled = final_scaler.fit_transform(X_train_opt)
+    X_val_opt_scaled = final_scaler.transform(X_val_opt)
+
+    print("为最终模型优化超参数...")
+    final_study = optuna.create_study(direction='maximize')
+    final_objective = objective_arduino if arduino_mode else objective_full
+    final_study.optimize(lambda trial: final_objective(trial, X_train_opt_scaled, y_train_opt, X_val_opt_scaled, y_val_opt), n_trials=n_trials)
+    
+    final_best_params = final_study.best_params
+    final_model = xgb.XGBClassifier(objective='multi:softmax', num_class=N_CLASSES, eval_metric='mlogloss', seed=SEED, **final_best_params)
+    
+    X_train_final_scaled = final_scaler.fit_transform(X_train_final)
+    X_test_final_scaled = final_scaler.transform(X_test_final)
+    final_model.fit(X_train_final_scaled, y_train_final)
+
+    timestamp = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_final_deployment_model"
+    header_path = generate_arduino_header(final_model, final_scaler, final_model_type, timestamp, output_dir)
+    
+    fold_summary_for_plot = {
+        'avg_accuracy': np.mean(accuracies), 'std_accuracy': np.std(accuracies), 
+        'avg_f1': np.mean(f1_scores), 'std_f1': np.std(f1_scores)
+    }
+    comprehensive_evaluation(
+        final_model, X_test_final_scaled, y_test_final, final_scaler, 
+        model_output_dir, f"{final_model_type}_{timestamp}", class_names=class_names, fold_summary=fold_summary_for_plot
+    )
+    print("✅ 最终部署模型训练完成！")
+    return header_path
 
 
 if __name__ == "__main__":

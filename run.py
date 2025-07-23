@@ -24,34 +24,33 @@ def data_collection(args):
 
 def model_training(args):
     """Model training mode"""
-    # Map model type to corresponding training script
-    script_map = {
-        "1D_CNN": "src/training/train_cnn1d.py",
-        "XGBoost": "src/training/train_xgboost.py",
-        "CNN_LSTM": "src/training/train_cnn_lstm.py",
-        "Transformer_Encoder": "src/training/train_transformer.py"
-    }
-    
-    script_path = script_map.get(args.model_type)
-    if not script_path:
-        print(f"Error: Unknown model type '{args.model_type}'")
+    # Dynamically import the required training functions
+    if args.model_type == '1D_CNN':
+        from src.training.train_cnn1d import train_model, train_loso_model
+    elif args.model_type == 'XGBoost':
+        from src.training.train_xgboost import train_model, train_loso_model
+    elif args.model_type == 'CNN_LSTM':
+        from src.training.train_cnn_lstm import train_model, train_loso_model
+    elif args.model_type == 'Transformer_Encoder':
+        from src.training.train_transformer import train_model, train_loso_model
+    else:
+        print(f"错误：未知的模型类型 '{args.model_type}'")
         return 1
+
+    if args.loso:
+        print(f"🚀 开始对 {args.model_type} 模型进行LOSO训练...")
+        if args.model_type == 'XGBoost':
+            train_loso_model(args.csv_dir, args.output_dir, args.model_type, args.n_trials, args.arduino)
+        else:
+            train_loso_model(args.csv_dir, args.output_dir, args.model_type, args.n_trials, args.epochs, args.arduino)
+    else:
+        print(f"🚀 开始对 {args.model_type} 模型进行标准训练...")
+        if args.model_type == 'XGBoost':
+            train_model(args.csv_dir, args.output_dir, args.n_trials, args.model_type, args.arduino)
+        else:
+            train_model(args.csv_dir, args.output_dir, args.model_type, args.n_trials, args.epochs, args.arduino)
     
-    cmd = [
-        sys.executable, script_path,
-        "--csv_dir", args.csv_dir,
-        "--output_dir", args.output_dir,
-        "--model_type", args.model_type,
-        "--epochs", str(args.epochs),
-        "--n_trials", str(args.n_trials)
-    ]
-    
-    # Add arduino flag if specified
-    if hasattr(args, 'arduino') and args.arduino:
-        cmd.append("--arduino")
-    
-    result = subprocess.run(cmd, cwd=project_root)
-    return result.returncode
+    return 0
 
 def main():
     """Main function"""
@@ -75,6 +74,7 @@ def main():
     train_parser.add_argument('--n_trials', type=int, default=100)
     train_parser.add_argument('--arduino', action='store_true', 
                              help='Use Arduino optimization mode for XGBoost (smaller file size)')
+    train_parser.add_argument('--loso', action='store_true', help='使用“留一被试法”（LOSO）交叉验证')
     train_parser.set_defaults(func=model_training)
     
     args = parser.parse_args()

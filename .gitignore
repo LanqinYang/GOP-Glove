@@ -87,3 +87,4 @@ temp/
 # Configuration files with sensitive data
 config/secrets.yaml
 .env.local 
+models/trained/ 
