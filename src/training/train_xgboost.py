@@ -20,6 +20,7 @@ from micromlgen import port
 import optuna
 from datetime import datetime
 import json
+from optuna.integration import XGBoostPruningCallback
 
 # Add visualization imports
 import matplotlib.pyplot as plt
@@ -188,11 +189,16 @@ def objective_full(trial, X_train, y_train, X_val, y_val):
             seed=SEED,
             **params
         )
-        model.fit(X_train, y_train)
+        # 为Optuna剪枝添加XGBoostPruningCallback
+        pruning_callback = XGBoostPruningCallback(trial, "validation_0-mlogloss")
+        model.fit(X_train, y_train, eval_set=[(X_val, y_val)], callbacks=[pruning_callback], verbose=False)
         y_pred = model.predict(X_val)
         accuracy = accuracy_score(y_val, y_pred)
         return accuracy
-    except:
+    except Exception as e:
+        if isinstance(e, optuna.exceptions.TrialPruned):
+            raise
+        print(f"Trial failed with error: {e}. Reporting as pruned.")
         return 0.0
 
 
@@ -218,11 +224,16 @@ def objective_arduino(trial, X_train, y_train, X_val, y_val):
             seed=SEED,
             **params
         )
-        model.fit(X_train, y_train)
+        # 为Optuna剪枝添加XGBoostPruningCallback
+        pruning_callback = XGBoostPruningCallback(trial, "validation_0-mlogloss")
+        model.fit(X_train, y_train, eval_set=[(X_val, y_val)], callbacks=[pruning_callback], verbose=False)
         y_pred = model.predict(X_val)
         accuracy = accuracy_score(y_val, y_pred)
         return accuracy
-    except:
+    except Exception as e:
+        if isinstance(e, optuna.exceptions.TrialPruned):
+            raise
+        print(f"Trial failed with error: {e}. Reporting as pruned.")
         return 0.0
 
 
@@ -601,28 +612,21 @@ def train_model(csv_dir, output_dir, n_trials=50, model_type="XGBoost", arduino_
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     print(f"\n开始超参数优化 (试验次数: {n_trials})...")
-    study = optuna.create_study(direction='maximize')
-    
-    # 智能早停策略
-    def smart_early_stop_callback(study, trial):
-        # 简单策略：准确率达到完美时停止
-        if study.best_value >= 1.0:
-            print(f"🎯 早停: 验证准确率达到 {study.best_value:.4f} (≥100%) 在第 {trial.number} 次试验")
-            study.stop()
+    # 使用Optuna Pruner进行早停
+    pruner = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=5, interval_steps=1)
+    study = optuna.create_study(direction='maximize', pruner=pruner)
     
     # 根据模式选择目标函数
     if arduino_mode:
         study.optimize(
             lambda trial: objective_arduino(trial, X_train_scaled, y_train, X_val_scaled, y_val),
             n_trials=n_trials,
-            callbacks=[smart_early_stop_callback],
             show_progress_bar=True
         )
     else:
         study.optimize(
             lambda trial: objective_full(trial, X_train_scaled, y_train, X_val_scaled, y_val),
             n_trials=n_trials,
-            callbacks=[smart_early_stop_callback],
             show_progress_bar=True
         )
     
@@ -748,7 +752,9 @@ def train_loso_model(csv_dir, output_dir, model_type, n_trials=50, arduino_mode=
         X_test_scaled = scaler.transform(X_test_feat)
         
         print(f"为被试 {subject_id} 优化超参数...")
-        study = optuna.create_study(direction='maximize')
+        # 添加Pruner
+        pruner = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=5)
+        study = optuna.create_study(direction='maximize', pruner=pruner)
         objective_func = objective_arduino if arduino_mode else objective_full
         study.optimize(lambda trial: objective_func(trial, X_train_scaled, y_train, X_val_scaled, y_val), n_trials=n_trials)
         
@@ -794,7 +800,9 @@ def train_loso_model(csv_dir, output_dir, model_type, n_trials=50, arduino_mode=
     X_val_opt_scaled = final_scaler.transform(X_val_opt)
 
     print("为最终模型优化超参数...")
-    final_study = optuna.create_study(direction='maximize')
+    # 为最终模型添加Pruner
+    final_pruner = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=5)
+    final_study = optuna.create_study(direction='maximize', pruner=final_pruner)
     final_objective = objective_arduino if arduino_mode else objective_full
     final_study.optimize(lambda trial: final_objective(trial, X_train_opt_scaled, y_train_opt, X_val_opt_scaled, y_val_opt), n_trials=n_trials)
     
@@ -831,6 +839,10 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', type=int, default=50, help='Epochs parameter (ignored for XGBoost)')
     parser.add_argument('--arduino', action='store_true', 
                        help='使用Arduino优化模式（文件<1MB，但精度稍低）')
+    parser.add_argument('--loso', action='store_true', help='使用“留一被试法”（LOSO）交叉验证')
     args = parser.parse_args()
     
-    train_model(args.csv_dir, args.output_dir, args.n_trials, args.model_type, args.arduino) 
+    if args.loso:
+        train_loso_model(args.csv_dir, args.output_dir, args.model_type, args.n_trials, args.arduino)
+    else:
+        train_model(args.csv_dir, args.output_dir, args.n_trials, args.model_type, args.arduino) 

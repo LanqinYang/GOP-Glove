@@ -10,7 +10,8 @@ A comprehensive multi-model gesture recognition system for British Sign Language
 ## 🚀 Key Features
 
 - **🤖 Multi-Model Support**: 1D-CNN, CNN-LSTM, Transformer, and XGBoost architectures
-- **⚡ Smart Training**: Unified interface with intelligent early stopping
+- **⚡ Smart Training**: Unified interface with intelligent early stopping and Optuna-based pruners
+- **🔬 Robust Validation**: Standard train/test split and Leave-One-Subject-Out (LOSO) cross-validation
 - **📱 Edge Deployment**: Arduino-optimized models with pruning+quantization for 256KB limit
 - **📊 Comprehensive Evaluation**: Detailed performance analysis with visualizations
 - **🔧 Hardware Integration**: Real-time data collection from flexible sensor gloves
@@ -19,10 +20,10 @@ A comprehensive multi-model gesture recognition system for British Sign Language
 
 | Model | Description | Accuracy | Deploy Size | Arduino Mode |
 |-------|-------------|----------|-------------|--------------|
-| **1D-CNN** | Lightweight CNN | ~80% | 0.05MB | ✅ Pruned+Quantized |
-| **XGBoost** | Gradient boosting | ~85% | 0.3MB | ✅ Arduino-optimized |
-| **CNN-LSTM** | Hybrid temporal model | ~85% | 0.2MB | ✅ Compressed |
-| **Transformer** | Attention mechanism | ~85% | 0.2MB | ✅ Lightweight |
+| **1D-CNN** | Lightweight CNN | ~80% | 0.05MB | ✅ Pruned + Quantized |
+| **XGBoost** | Gradient boosting | ~85% | 0.3MB | ✅ Optimized (Features + Params) |
+| **CNN-LSTM** | Hybrid temporal model | ~85% | 0.2MB | ✅ Pruned + Quantized |
+| **Transformer** | Attention mechanism | ~85% | 0.2MB | ✅ Pruned + Quantized |
 
 ## 🛠️ Quick Start
 
@@ -43,32 +44,64 @@ python src/training/train.py XGBoost
 python src/training/train.py 1D_CNN --arduino
 python src/training/train.py XGBoost --arduino
 
+# Leave-One-Subject-Out (LOSO) cross-validation
+python src/training/train.py Transformer_Encoder --loso --n_trials 50
+
 # Advanced hyperparameter tuning
 python src/training/train.py CNN_LSTM --n_trials 200 --epochs 100
 python src/training/train.py Transformer_Encoder --n_trials 100 --epochs 50
 ```
 
-### Smart Early Stopping
-All models include intelligent early stopping:
-- 🎯 **Automatic termination** when 100% validation accuracy is reached
-- ⏱️ **Time saving** - no wasted computation on perfect solutions
-- 📊 **Large n_trials safe** - set high values without worry
+### Smart Early Stopping & Pruning
+All models include intelligent hyperparameter search and early stopping:
+- 🎯 **Optuna Integration**: Automated hyperparameter tuning to find the best model configurations.
+- **Pruning**: All Optuna trials use a `Pruner` (`MedianPruner` for TF models, `XGBoostPruningCallback` for XGBoost) to automatically stop unpromising trials early.
+- ⏱️ **Time Saving**: No wasted computation on poor hyperparameter combinations.
+- 📊 **Large `n_trials` Safe**: Set high trial counts without worry, as bad runs are terminated quickly.
 
 ## 🔬 Arduino Optimization Techniques
 
-### Pruning + Quantization Pipeline
-Our Arduino mode applies aggressive model compression:
+Our Arduino mode applies aggressive model compression to meet the **256KB flash memory limit** of the Arduino Nano 33 BLE Sense Rev2.
 
-1. **Pruning**: Removes redundant neural connections
-2. **Quantization**: Converts float32 → float16 precision
-3. **Architecture Optimization**: Reduces layer sizes for edge constraints
-4. **TensorFlow Lite**: Standard conversion with hardware-specific ops
+### Pruning + Quantization (TensorFlow Models)
+For `1D-CNN`, `CNN-LSTM`, and `Transformer` models, the pipeline is as follows:
+
+1.  **Structural Pruning**: A simplified, fixed model architecture is used, which reduces the number of layers and parameters compared to the full version. This is a manual form of architectural pruning.
+2.  **Quantization**: Model weights are converted from `float32` to `float16` precision, halving the model size with minimal impact on accuracy.
+3.  **TensorFlow Lite Conversion**: The model is converted into the standard `.tflite` format for edge devices.
+
+### Feature & Parameter Pruning (XGBoost)
+The `XGBoost` model is optimized differently, as it is not a neural network:
+
+1.  **Feature Pruning**: A reduced set of statistical features is extracted from the raw sensor data, making the input to the model smaller.
+2.  **Parameter Pruning**: The hyperparameter search space is constrained to produce a simpler model (e.g., fewer trees, shallower depth).
+3.  **Arduino C-Code Generation**: The final model is converted directly into C++ code using the `micromlgen` library, which is highly efficient for deployment on microcontrollers.
 
 ### Hardware Constraints (Arduino Nano 33 BLE Sense Rev2)
 - **Flash Memory**: 1MB total, **256KB limit** for model storage
 - **SRAM**: 256KB for runtime operations
 - **Clock**: 64MHz ARM Cortex-M4F processor
 - **AI Acceleration**: Built-in DSP instructions for efficient inference
+
+## 🧪 Validation Strategies
+
+This project supports two primary validation strategies to ensure model robustness.
+
+### 1. Standard Train-Validation-Test Split
+- **Usage**: Default training mode (`python src/training/train.py <MODEL_TYPE>`).
+- **Process**: The dataset is randomly split into three sets:
+    - **Training Set**: Used to train the model.
+    - **Validation Set**: Used during hyperparameter tuning (Optuna) to evaluate trial performance.
+    - **Test Set**: A completely held-out set used only once at the end to report the final model accuracy.
+- **Best For**: Quick training and getting a general performance baseline.
+
+### 2. Leave-One-Subject-Out (LOSO) Cross-Validation
+- **Usage**: Activated with the `--loso` flag (`python src/training/train.py <MODEL_TYPE> --loso`).
+- **Process**: This is a more rigorous, user-independent validation method.
+    - For each subject (user) in the dataset, a model is trained on all *other* subjects' data and then tested on that one subject's data.
+    - This process is repeated for every subject.
+    - The final reported accuracy is the average accuracy across all subjects.
+- **Best For**: Assessing the model's ability to generalize to new, unseen users, which is critical for real-world applications.
 
 ## 📁 Project Structure
 

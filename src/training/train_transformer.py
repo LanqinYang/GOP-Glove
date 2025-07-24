@@ -21,6 +21,7 @@ from tensorflow.keras.optimizers import Adam # type: ignore
 import optuna
 from datetime import datetime
 import json
+from optuna.integration import TFKerasPruningCallback
 
 # Add visualization imports
 import matplotlib.pyplot as plt
@@ -282,16 +283,24 @@ def objective(trial, X_train, y_train, X_val, y_val, arduino_mode=False):
     
     try:
         model = create_model(params, arduino_mode)
+        # 为Optuna剪枝添加TFKerasPruningCallback
+        callbacks = [
+            EarlyStopping(patience=5, restore_best_weights=True),
+            TFKerasPruningCallback(trial, "val_accuracy")
+        ]
         history = model.fit(
             X_train, y_train,
             batch_size=params['batch_size'],
             epochs=epochs,
             validation_data=(X_val, y_val),
-            callbacks=[EarlyStopping(patience=5, restore_best_weights=True)],
+            callbacks=callbacks,
             verbose=0
         )
         return max(history.history['val_accuracy'])
-    except:
+    except Exception as e:
+        if isinstance(e, optuna.exceptions.TrialPruned):
+            raise
+        print(f"Trial failed with error: {e}. Reporting as pruned.")
         return 0.0
 
 
@@ -638,14 +647,9 @@ def train_model(csv_dir, output_dir, model_type, n_trials=100, epochs=50, arduin
     
     # Optimize hyperparameters
     print(f"Optimizing hyperparameters with {n_trials} trials...")
-    study = optuna.create_study(direction='maximize')
-    
-    # 智能早停策略
-    def smart_early_stop_callback(study, trial):
-        # 简单策略：准确率达到完美时停止
-        if study.best_value >= 1.0:
-            print(f"🎯 早停: 验证准确率达到 {study.best_value:.4f} (≥100%) 在第 {trial.number} 次试验")
-            study.stop()
+    # 使用Optuna Pruner进行早停
+    pruner = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=5, interval_steps=1)
+    study = optuna.create_study(direction='maximize', pruner=pruner)
     
     # 根据模式选择目标函数
     if arduino_mode:
@@ -653,7 +657,7 @@ def train_model(csv_dir, output_dir, model_type, n_trials=100, epochs=50, arduin
     else:
         objective_func = lambda trial: objective(trial, X_train_scaled, y_train, X_val_scaled, y_val)
     
-    study.optimize(objective_func, n_trials=n_trials, callbacks=[smart_early_stop_callback])
+    study.optimize(objective_func, n_trials=n_trials)
     
     best_params = study.best_params
     print(f"Best validation accuracy: {study.best_value:.4f}")
@@ -845,7 +849,9 @@ def train_loso_model(csv_dir, output_dir, model_type, n_trials=50, epochs=50, ar
         X_val_scaled = scaler.transform(X_val.reshape(-1, N_FEATURES)).reshape(X_val.shape)
         X_test_scaled = scaler.transform(X_test.reshape(-1, N_FEATURES)).reshape(X_test.shape)
         
-        study = optuna.create_study(direction='maximize')
+        # 添加Pruner
+        pruner = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=5)
+        study = optuna.create_study(direction='maximize', pruner=pruner)
         objective_func = lambda trial: objective(trial, X_train_scaled, y_train, X_val_scaled, y_val, arduino_mode)
         study.optimize(objective_func, n_trials=n_trials)
         
@@ -891,7 +897,9 @@ def train_loso_model(csv_dir, output_dir, model_type, n_trials=50, epochs=50, ar
     X_train_opt_scaled = final_scaler.fit_transform(X_train_opt.reshape(-1, N_FEATURES)).reshape(X_train_opt.shape)
     X_val_opt_scaled = final_scaler.transform(X_val_opt.reshape(-1, N_FEATURES)).reshape(X_val_opt.shape)
 
-    final_study = optuna.create_study(direction='maximize')
+    # 为最终模型添加Pruner
+    final_pruner = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=5)
+    final_study = optuna.create_study(direction='maximize', pruner=final_pruner)
     final_objective = lambda trial: objective(trial, X_train_opt_scaled, y_train_opt, X_val_opt_scaled, y_val_opt, arduino_mode)
     final_study.optimize(final_objective, n_trials=n_trials)
     
@@ -957,6 +965,10 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--arduino', action='store_true',
                        help='使用Arduino优化模式（文件<1MB，但精度稍低）')
+    parser.add_argument('--loso', action='store_true', help='使用“留一被试法”（LOSO）交叉验证')
     args = parser.parse_args()
-    
-    train_model(args.csv_dir, args.output_dir, args.model_type, args.n_trials, args.epochs, args.arduino) 
+
+    if args.loso:
+        train_loso_model(args.csv_dir, args.output_dir, args.model_type, args.n_trials, args.epochs, args.arduino)
+    else:
+        train_model(args.csv_dir, args.output_dir, args.model_type, args.n_trials, args.epochs, args.arduino) 
