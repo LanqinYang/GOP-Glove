@@ -182,16 +182,19 @@ def objective_full(trial, X_train, y_train, X_val, y_val):
     }
     
     try:
+        # 为Optuna剪枝添加XGBoostPruningCallback
+        pruning_callback = XGBoostPruningCallback(trial, "validation_0-mlogloss")
+        
         model = xgb.XGBClassifier(
             objective='multi:softmax',
             num_class=N_CLASSES,
             eval_metric='mlogloss',
             seed=SEED,
+            callbacks=[pruning_callback],
             **params
         )
-        # 为Optuna剪枝添加XGBoostPruningCallback
-        pruning_callback = XGBoostPruningCallback(trial, "validation_0-mlogloss")
-        model.fit(X_train, y_train, eval_set=[(X_val, y_val)], callbacks=[pruning_callback], verbose=False)
+
+        model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
         y_pred = model.predict(X_val)
         accuracy = accuracy_score(y_val, y_pred)
         return accuracy
@@ -217,16 +220,19 @@ def objective_arduino(trial, X_train, y_train, X_val, y_val):
     }
     
     try:
+        # 为Optuna剪枝添加XGBoostPruningCallback
+        pruning_callback = XGBoostPruningCallback(trial, "validation_0-mlogloss")
+
         model = xgb.XGBClassifier(
             objective='multi:softmax',
             num_class=N_CLASSES,
             eval_metric='mlogloss',
             seed=SEED,
+            callbacks=[pruning_callback],
             **params
         )
-        # 为Optuna剪枝添加XGBoostPruningCallback
-        pruning_callback = XGBoostPruningCallback(trial, "validation_0-mlogloss")
-        model.fit(X_train, y_train, eval_set=[(X_val, y_val)], callbacks=[pruning_callback], verbose=False)
+
+        model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
         y_pred = model.predict(X_val)
         accuracy = accuracy_score(y_val, y_pred)
         return accuracy
