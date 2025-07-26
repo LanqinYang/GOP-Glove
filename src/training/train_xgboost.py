@@ -246,21 +246,38 @@ def objective_arduino(trial, X_train, y_train, X_val, y_val):
 def generate_arduino_header(model, scaler, model_type, timestamp, output_dir):
     """使用micromlgen为XGBoost模型生成Arduino兼容的C代码头文件"""
     # 使用micromlgen生成C代码
-    model_code = port(model)
+    c_code = port(model, classname="XGBoostClassifier")
+
+    # The micromlgen port function for XGBoost returns a class with a predict_proba method.
+    # We need to adapt it to a simple function that returns the class array.
+    # So we will rename the "predict_proba" to "predict_xgboost" and remove the class wrapper.
+    c_code = c_code.replace("class XGBoostClassifier {", "")
+    c_code = c_code.replace("public:", "")
+    c_code = c_code.replace("};", "")
+    c_code = c_code.replace("    float* predict_proba(float *x) {", "void predict_xgboost(float *x, float *predictions) {")
+    c_code = c_code.replace("        return this->forests.predict_proba(x);", "this->forests.predict_proba(x, predictions);")
     
+    # We also need to adapt the RandomForest class to accept the predictions array
+    c_code = c_code.replace("float* predict_proba(float *x)", "void predict_proba(float *x, float* predictions)")
+    c_code = c_code.replace("float *predictions = new float[11];", "")
+    c_code = c_code.replace("for (int i = 0; i < 11; i++) predictions[i] = 0;", "for (int i = 0; i < 11; i++) predictions[i] = 0;")
+    c_code = c_code.replace("return predictions;", "")
+
+
     # 获取归一化参数
     mean_values = ', '.join(f'{val:.8f}f' for val in scaler.mean_)
     scale_values = ', '.join(f'{val:.8f}f' for val in scaler.scale_)
-    feature_count = len(scaler.mean_)
     
-    # 生成头文件内容
+    # micromlgen will name the features array based on the number of features.
+    # We need to find that name to correctly reference it in the header.
+    n_features = scaler.n_features_in_
+    
     header_content = f"""/*
  * BSL Gesture Recognition Model - Arduino Optimized
  *
  * Model Type: {model_type}
  * Timestamp:  {timestamp}
  * Generated with micromlgen for Arduino compatibility
- * File Size: Optimized for <1MB Arduino memory constraints
  */
 
 #ifndef BSL_MODEL_H_{timestamp}
@@ -268,22 +285,15 @@ def generate_arduino_header(model, scaler, model_type, timestamp, output_dir):
 
 #include <math.h>
 
-// Feature count for normalization
-const int BSL_MODEL_FEATURES = {feature_count};
+// Feature count for normalization. XGBoost has a different number of features.
+const int N_FEATURES = {n_features};
 
-// Normalization parameters (StandardScaler)
-const float scaler_mean[BSL_MODEL_FEATURES] = {{ {mean_values} }};
-const float scaler_scale[BSL_MODEL_FEATURES] = {{ {scale_values} }};
-
-// Normalization function
-void normalize_features(float* features, int length) {{
-    for (int i = 0; i < length; i++) {{
-        features[i] = (features[i] - scaler_mean[i]) / scaler_scale[i];
-    }}
-}}
+// Normalization parameters (StandardScaler for extracted features)
+const float scaler_mean[N_FEATURES] = {{ {mean_values} }};
+const float scaler_scale[N_FEATURES] = {{ {scale_values} }};
 
 // Generated XGBoost model code
-{model_code}
+{c_code}
 
 #endif // BSL_MODEL_H_{timestamp}
 """
@@ -589,30 +599,33 @@ def train_model(csv_dir, output_dir, n_trials=50, model_type="XGBoost", arduino_
     os.makedirs(output_dir, exist_ok=True)
     
     # 加载数据
-    X, y = load_data(csv_dir)
+    X, y, _ = load_data(csv_dir) # Subjects not used here
     print(f"加载数据：{len(X)} 个样本")
     
     # 根据模式选择特征提取方法
     if arduino_mode:
+        print(f"Extracting features for Arduino mode...")
         X_features = extract_features_arduino(X)
         print(f"Arduino优化特征提取：{X_features.shape[1]} 个特征")
     else:
+        print(f"Extracting features for full mode...")
         X_features = extract_features_full(X)
         print(f"完整特征提取：{X_features.shape[1]} 个特征")
     
     # 数据分割
-    X_train, X_test, y_train, y_test = train_test_split(
+    X_train_feat, X_test_feat, y_train, y_test = train_test_split(
         X_features, y, test_size=TEST_SIZE, random_state=SEED, stratify=y
     )
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_train, y_train, test_size=VAL_SIZE, random_state=SEED, stratify=y_train
+    X_train_feat, X_val_feat, y_train, y_val = train_test_split(
+        X_train_feat, y_train, test_size=VAL_SIZE, random_state=SEED, stratify=y_train
     )
     
-    # 数据归一化
+    # 数据归一化 (on features)
+    print("Normalizing extracted features...")
     scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_val_scaled = scaler.transform(X_val)
-    X_test_scaled = scaler.transform(X_test)
+    X_train_scaled = scaler.fit_transform(X_train_feat)
+    X_val_scaled = scaler.transform(X_val_feat)
+    X_test_scaled = scaler.transform(X_test_feat)
     
     # 优化超参数
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -641,7 +654,7 @@ def train_model(csv_dir, output_dir, n_trials=50, model_type="XGBoost", arduino_
     print(f"\n最佳参数：{best_params}")
     
     model = xgb.XGBClassifier(
-        objective='multi:softmax',
+        objective='multi:softprob', # Use softprob to get probabilities
         num_class=N_CLASSES,
         eval_metric='mlogloss',
         seed=SEED,
@@ -813,7 +826,7 @@ def train_loso_model(csv_dir, output_dir, model_type, n_trials=50, arduino_mode=
     final_study.optimize(lambda trial: final_objective(trial, X_train_opt_scaled, y_train_opt, X_val_opt_scaled, y_val_opt), n_trials=n_trials)
     
     final_best_params = final_study.best_params
-    final_model = xgb.XGBClassifier(objective='multi:softmax', num_class=N_CLASSES, eval_metric='mlogloss', seed=SEED, **final_best_params)
+    final_model = xgb.XGBClassifier(objective='multi:softprob', num_class=N_CLASSES, eval_metric='mlogloss', seed=SEED, **final_best_params)
     
     X_train_final_scaled = final_scaler.fit_transform(X_train_final)
     X_test_final_scaled = final_scaler.transform(X_test_final)

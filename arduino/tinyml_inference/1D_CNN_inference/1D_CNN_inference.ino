@@ -87,16 +87,18 @@ void perform_inference(float* input_data, float* output_data);
 void setup() {
   Serial.begin(115200);
   while (!Serial);
+  Serial.println("DEBUG: Serial connection established.");
 
   // 初始化传感器
   for (int i = 0; i < NUM_SENSORS; i++) {
     pinMode(SENSOR_PINS[i], INPUT);
   }
+  Serial.println("DEBUG: Sensors initialized.");
 
   // 初始化TensorFlow Lite
   setup_tf();
   
-  Serial.println("✅ 系统初始化完成，等待手势...");
+  Serial.println("✅ System initialized, waiting for gesture...");
 }
 
 void loop() {
@@ -129,7 +131,7 @@ void loop() {
         if (difference > GESTURE_TRIGGER_THRESHOLD) {
           current_state = STATE_DETECTING;
           gesture_start_time = millis();
-          Serial.println(" perubahan terdeteksi, mulai merekam...");
+          Serial.println("Change detected, starting to record...");
         }
         break;
         
@@ -137,7 +139,7 @@ void loop() {
         if (millis() - gesture_start_time > (MIN_GESTURE_DURATION * SAMPLE_INTERVAL)) {
           // 当手势持续一段时间后，如果动作变缓（趋于静止），则触发推理
           if (difference < STATIC_THRESHOLD) {
-            Serial.println(" gerakan selesai, mulai inferensi...");
+            Serial.println("Movement finished, starting inference...");
             
             // 准备推理数据
             float inference_buffer[SEQUENCE_LENGTH * NUM_SENSORS];
@@ -149,10 +151,15 @@ void loop() {
                 current_pos = (current_pos + 1) % SEQUENCE_LENGTH;
             }
 
-            // 归一化 (假设你有一个 normalize_features 函数)
-            // for(int i = 0; i < SEQUENCE_LENGTH; ++i) {
-            //   normalize_features(&inference_buffer[i * NUM_SENSORS], NUM_SENSORS);
-            // }
+            // CRITICAL: Apply the same StandardScaler normalization used during training.
+            // The model will not work correctly without this step.
+            // z = (x - mean) / scale
+            for (int i = 0; i < SEQUENCE_LENGTH; i++) {
+              for (int j = 0; j < NUM_SENSORS; j++) {
+                  int index = i * NUM_SENSORS + j;
+                  inference_buffer[index] = (inference_buffer[index] - scaler_mean[j]) / scaler_scale[j];
+              }
+            }
 
             // 执行推理
             float output_data[NUM_GESTURES];
@@ -169,13 +176,13 @@ void loop() {
             }
             
             if (max_confidence > CONFIDENCE_THRESHOLD) {
-              Serial.print(" terdeteksi: ");
+              Serial.print("✅ Detected: ");
               Serial.print(GESTURE_LABELS[predicted_gesture]);
               Serial.print(" (");
               Serial.print(max_confidence * 100);
               Serial.println("%)");
             } else {
-              Serial.println(" tidak ada gerakan yang dikenali.");
+              Serial.println("️⚠️ No gesture recognized.");
             }
 
             // *** MODIFICATION 2: Set the cooldown timer when transitioning TO cooldown state ***
@@ -186,17 +193,11 @@ void loop() {
         break;
 
       case STATE_COOLDOWN:
-        // *** MODIFICATION 3: Corrected COOLDOWN logic ***
-        // 如果动作变缓，则检查冷却时间
-        if (difference < STATIC_THRESHOLD) {
-           if (millis() - cooldown_start_time > 1000) { // 冷却1秒
-              Serial.println(" pending gesture...");
-              current_state = STATE_IDLE;
-           }
-        } else { // 如果在冷却期间又有大动作，立即重新开始检测
-           current_state = STATE_DETECTING;
-           gesture_start_time = millis(); // 重置手势开始时间
-           Serial.println(" perubahan terdeteksi, mulai merekam...");
+        // Wait for a fixed cooldown period to prevent immediate re-triggering
+        // and allow the user to return to a neutral position.
+        if (millis() - cooldown_start_time > 2000) { // Cooldown for 2 seconds
+           Serial.println("Cooldown finished. Waiting for new gesture...");
+           current_state = STATE_IDLE;
         }
         break;
     }
@@ -208,24 +209,29 @@ void loop() {
 // ================================================================================================
 
 void setup_tf() {
+  Serial.println("DEBUG: Setting up TensorFlow Lite...");
   model = tflite::GetModel(model_data);
   if (model->version() != TFLITE_SCHEMA_VERSION) {
     Serial.println("Model provided is schema version not equal to supported version!");
     while (true);
   }
+  Serial.println("DEBUG: Model loaded and version checked.");
 
   static tflite::AllOpsResolver resolver;
   static tflite::MicroInterpreter static_interpreter(
       model, resolver, tensor_arena, kTensorArenaSize);
   interpreter = &static_interpreter;
+  Serial.println("DEBUG: Interpreter created.");
 
   if (interpreter->AllocateTensors() != kTfLiteOk) {
     Serial.println("AllocateTensors() failed");
     while (true);
   }
+  Serial.println("DEBUG: Tensors allocated.");
 
   input = interpreter->input(0);
   output = interpreter->output(0);
+  Serial.println("DEBUG: Input and output tensors set.");
 }
 
 void perform_inference(float* input_data, float* output_data) {

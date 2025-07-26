@@ -721,19 +721,20 @@ def train_model(csv_dir, output_dir, model_type, n_trials=100, epochs=50, arduin
     converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
     
     if arduino_mode:
-        print("应用Arduino优化量化...")
+        print("Applying full integer quantization for Arduino...")
+        
+        def representative_dataset():
+            for i in range(min(100, len(X_train_scaled))):
+                yield [X_train_scaled[i:i+1].astype(np.float32)]
+
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
-        converter.target_spec.supported_types = [tf.float16]
+        converter.representative_dataset = representative_dataset
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+        converter.inference_input_type = tf.int8
+        converter.inference_output_type = tf.int8
     else:
-        print("应用标准量化...")
+        print("Applying standard dynamic range quantization...")
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
-    
-    # Enable Select TF ops for LSTM layers
-    converter.target_spec.supported_ops = [
-        tf.lite.OpsSet.TFLITE_BUILTINS,
-        tf.lite.OpsSet.SELECT_TF_OPS
-    ]
-    converter._experimental_lower_tensor_list_ops = False
     
     # 直接转换，不使用任何异常处理回退
     tflite_model = converter.convert()
@@ -905,13 +906,20 @@ def train_loso_model(csv_dir, output_dir, model_type, n_trials=50, epochs=50, ar
     converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
     
     if arduino_mode:
+        print("Applying full integer quantization for final Arduino model...")
+
+        def representative_dataset_final():
+            for i in range(min(100, len(X_train_final_scaled))):
+                yield [X_train_final_scaled[i:i+1].astype(np.float32)]
+
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
-        converter.target_spec.supported_types = [tf.float16]
+        converter.representative_dataset = representative_dataset_final
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+        converter.inference_input_type = tf.int8
+        converter.inference_output_type = tf.int8
     else:
+        print("Applying standard dynamic range quantization for final model...")
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
-    
-    converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS, tf.lite.OpsSet.SELECT_TF_OPS]
-    converter._experimental_lower_tensor_list_ops = False
     
     tflite_model = converter.convert()
     
@@ -941,6 +949,10 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--arduino', action='store_true',
                        help='使用Arduino优化模式（文件<1MB，但精度稍低）')
+    parser.add_argument('--loso', action='store_true', help='使用“留一被试法”（LOSO）交叉验证')
     args = parser.parse_args()
     
-    train_model(args.csv_dir, args.output_dir, args.model_type, args.n_trials, args.epochs, args.arduino) 
+    if args.loso:
+        train_loso_model(args.csv_dir, args.output_dir, args.model_type, args.n_trials, args.epochs, args.arduino)
+    else:
+        train_model(args.csv_dir, args.output_dir, args.model_type, args.n_trials, args.epochs, args.arduino) 
