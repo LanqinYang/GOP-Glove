@@ -47,8 +47,8 @@ def main():
     parser.add_argument('--model_type', required=True,
                              choices=['1D_CNN', 'XGBoost', 'CNN_LSTM', 'Transformer_Encoder'],
                              help='Type of model to train')
-    parser.add_argument('--epochs', type=int, default=50, help="Number of training epochs (for TF models)")
-    parser.add_argument('--n_trials', type=int, default=100, help="Number of Optuna trials for hyperparameter optimization")
+    parser.add_argument('--epochs', type=int, default=100, help="Number of training epochs (for TF models)")
+    parser.add_argument('--n_trials', type=int, default=50, help="Number of Optuna trials for hyperparameter optimization")
     parser.add_argument('--arduino', action='store_true', 
                              help='Use Arduino optimization mode (smaller model, potentially lower accuracy)')
     parser.add_argument('--loso', action='store_true', help='Use Leave-One-Subject-Out (LOSO) cross-validation')

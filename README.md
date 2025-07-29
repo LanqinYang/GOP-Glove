@@ -89,6 +89,18 @@ The core design principle of this project is **Separation of Concerns** and **Mo
     This design makes adding a new model straightforward: simply create a new Python file that adheres to the `ModelCreator` interface.
 4.  **`evaluator.py`**: Responsible for generating all evaluation metrics, JSON reports, and visualizations. It functions as a standalone "reporting engine."
 
+### **Data Processing Pipeline**
+
+Before being fed into the models, the raw sensor data undergoes a standardized two-step preprocessing procedure within the `pipeline.py` module:
+
+1.  **Resampling**: Each variable-length gesture sequence read from a CSV file is resampled to a fixed length of 100 timesteps using linear interpolation. This ensures uniformity for model input.
+2.  **Kalman Filtering**: A Kalman filter is then applied to each of the 5 sensor channels in the resampled sequence. This step effectively smooths the data, reducing sensor noise while preserving the essential dynamic features of the gestures. This specific preprocessing step was chosen after a validation process showed it improved model generalization.
+3.  **Data Augmentation**: The training dataset is expanded by creating new, synthetically modified samples. The following techniques are applied probabilistically:
+    *   **Jittering**: Adds small random noise to each sensor reading.
+    *   **Scaling**: Varies the overall amplitude of the gesture signal.
+    *   **Time Warping**: Stretches and compresses the time axis to simulate variations in gesture speed.
+4.  **Standard Scaling**: Finally, a `StandardScaler` is fitted on the entire training dataset (including augmented data) and then applied to all data splits. This normalizes the features to have a mean of 0 and a standard deviation of 1.
+
 ### **Project Structure**
 
 ```

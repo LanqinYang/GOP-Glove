@@ -32,10 +32,17 @@ data:
   
   # 数据增强
   augmentation:
+    # Whether to enable augmentation. Can be overridden by the --augment flag.
     enabled: true
+    # The factor by which to increase the training dataset size.
+    # E.g., 2 means the training set will be tripled (original + 2 augmented copies).
     augment_factor: 2
-    jitter_noise_level: 0.01
-    scale_range: [0.8, 1.2]
+    # Jittering adds random noise to each time step.
+    jitter_noise_level: 0.02 # A small fraction of the data's standard deviation
+    # Scaling randomly multiplies the entire sequence's amplitude.
+    scale_range: [0.9, 1.1] # Scale between 90% and 110%
+    # Time warping randomly stretches and compresses parts of the sequence.
+    time_warp_max_speed: 3 # Speed can vary between 1/3x and 3x
   
   # 数据预处理
   preprocessing:

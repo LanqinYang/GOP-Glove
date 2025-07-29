@@ -44,7 +44,8 @@ class XgboostModelCreator:
             return X_scaled, scaler
         else:
             X_scaled = scaler.transform(X_features)
-            return X_scaled, None
+            # Ensure a tuple is always returned, consistent with other model creators
+            return X_scaled, scaler
 
     def define_hyperparams(self, trial, arduino_mode=False):
         if arduino_mode:

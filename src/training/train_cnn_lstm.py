@@ -24,7 +24,7 @@ class CnnLstmModelCreator:
             return X_scaled, scaler
         else:
             X_scaled = scaler.transform(X_data.reshape(-1, X_data.shape[-1])).reshape(X_data.shape)
-            return X_scaled, None
+            return X_scaled, scaler
 
     def define_hyperparams(self, trial, arduino_mode=False):
         if arduino_mode:

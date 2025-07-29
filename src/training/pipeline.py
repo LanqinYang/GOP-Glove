@@ -10,6 +10,8 @@ import pickle
 import json
 from datetime import datetime
 import matplotlib.pyplot as plt
+import yaml
+from tsaug import TimeWarp, AddNoise
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -17,6 +19,8 @@ import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping
 import optuna
 from optuna.integration import TFKerasPruningCallback, XGBoostPruningCallback
+from filterpy.kalman import KalmanFilter
+from filterpy.common import Q_discrete_white_noise
 
 # Project-specific imports
 from src.evaluation.evaluator import comprehensive_evaluation, generate_loso_summary_plots
@@ -83,6 +87,90 @@ def load_data(csv_dir):
             continue
     
     return np.array(all_data), np.array(all_labels), np.array(all_subjects)
+
+def apply_kalman_filter(data):
+    """
+    Apply a Kalman filter to each feature in the sequence.
+    """
+    kf = KalmanFilter(dim_x=2, dim_z=1)
+    
+    kf.F = np.array([[1., 1.],[0., 1.]])
+    kf.H = np.array([[1., 0.]])
+    kf.P *= 1000.
+    kf.Q = Q_discrete_white_noise(dim=2, dt=0.01, var=0.1)
+    # Optimized R value
+    kf.R = np.array([[0.1]])
+
+    filtered_data = np.zeros_like(data)
+    for i in range(data.shape[1]): # Iterate over features
+        feature_series = data[:, i]
+        kf.x = np.array([[feature_series[0]], [0.]]) # Initial state
+        
+        (filtered_series, _, _, _) = kf.batch_filter(feature_series)
+        
+        filtered_data[:, i] = filtered_series[:, 0, 0]
+        
+    return filtered_data
+
+def augment_data(X_train, y_train):
+    """
+    Applies data augmentation to the training set based on config.yaml.
+    """
+    try:
+        with open('configs/config.yaml', 'r') as f:
+            config = yaml.safe_load(f)['augmentation']
+    except (FileNotFoundError, KeyError):
+        print("Warning: Augmentation config not found. Skipping augmentation.")
+        return X_train, y_train
+
+    if not config.get('enabled', False):
+        return X_train, y_train
+        
+    print(f"🚀 Augmenting data... (Factor: {config['augment_factor']}x)")
+
+    # Create the copies of the data that will be augmented
+    X_to_augment = np.repeat(X_train, config['augment_factor'], axis=0)
+    y_to_augment = np.repeat(y_train, config['augment_factor'], axis=0)
+
+    # 1. Define augmenters from the library (tsaug)
+    # Each augmenter will be applied to each sample with a 50% probability.
+    augmenter = (
+        AddNoise(scale=config['jitter_noise_level']) @ 0.5
+        + TimeWarp(n_speed_change=5, max_speed=config['time_warp_max_speed']) @ 0.5
+    )
+    
+    # Apply tsaug augmentations
+    X_augmented = augmenter.augment(X_to_augment)
+
+    # 2. Apply our custom scaling augmentation manually
+    scale_range = config['scale_range']
+    for i in range(X_augmented.shape[0]):
+        # Apply scaling with a 50% probability to each sample
+        if np.random.rand() < 0.5:
+            scale_factor = np.random.uniform(scale_range[0], scale_range[1])
+            X_augmented[i] = X_augmented[i] * scale_factor
+
+    # 3. Combine original and augmented data
+    X_final = np.vstack([X_train, X_augmented])
+    y_final = np.concatenate([y_train, y_to_augment])
+
+    return X_final, y_final
+
+def load_and_clean_data(csv_dir, cleaning_mode, baseline_samples=5):
+    """
+    Load data and apply cleaning based on the specified mode.
+    """
+    X, y, subjects = load_data(csv_dir)
+    
+    if cleaning_mode == 'none':
+        return X, y, subjects
+    
+    apply_baseline = cleaning_mode in ['baseline', 'both']
+    apply_kalman = cleaning_mode in ['kalman', 'both']
+
+    X_cleaned = np.array([clean_data(seq, apply_baseline=apply_baseline, apply_kalman=apply_kalman, baseline_samples=baseline_samples) for seq in X])
+    
+    return X_cleaned, y, subjects
 
 # --- TFLite & Arduino Header Generation ---
 
@@ -216,8 +304,12 @@ def run_training_pipeline(args, model_creator):
     print(f"   - Trained models: {trained_model_dir}")
     print(f"{'='*60}\n")
     
-    # 2. Load Data
+    # 2. Load and Process Data
+    print("💾 Loading original data...")
     X, y, subjects = load_data(args.csv_dir)
+    
+    print("🧼 Applying Kalman filter to data...")
+    X = np.array([apply_kalman_filter(seq) for seq in X])
 
     if args.loso:
         run_loso_pipeline(args, model_creator, X, y, subjects, output_dir, trained_model_dir)
@@ -230,6 +322,9 @@ def run_standard_pipeline(args, model_creator, X, y, output_dir, trained_model_d
     X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=TEST_SIZE, random_state=SEED, stratify=y)
     X_train, X_val, y_train, y_val = train_test_split(X_temp, y_temp, test_size=VAL_SIZE, random_state=SEED, stratify=y_temp)
     
+    # Apply Data Augmentation on the training set
+    X_train, y_train = augment_data(X_train, y_train)
+
     # Feature extraction & Scaling
     X_train_feat, scaler = model_creator.extract_and_scale_features(X_train, fit=True, arduino_mode=args.arduino)
     X_val_feat, _ = model_creator.extract_and_scale_features(X_val, scaler=scaler, arduino_mode=args.arduino)
@@ -279,6 +374,9 @@ def run_loso_pipeline(args, model_creator, X, y, subjects, output_dir, trained_m
         X_train_full, y_train_full = X[train_indices], y[train_indices]
         X_test, y_test = X[test_indices], y[test_indices]
         
+        # Apply Data Augmentation on the full training set for this fold
+        X_train_full, y_train_full = augment_data(X_train_full, y_train_full)
+
         # Feature extraction and scaling for this fold
         X_train_full_feat, scaler = model_creator.extract_and_scale_features(X_train_full, fit=True, arduino_mode=args.arduino)
         X_test_feat, _ = model_creator.extract_and_scale_features(X_test, scaler=scaler, arduino_mode=args.arduino)
