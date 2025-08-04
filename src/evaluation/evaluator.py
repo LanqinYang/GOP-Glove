@@ -149,16 +149,21 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
         eval_results['training_history'] = {
             'epochs_trained': len(history.history['accuracy']),
             'final_train_accuracy': float(history.history['accuracy'][-1]),
-            'final_val_accuracy': float(history.history['val_accuracy'][-1]),
             'final_train_loss': float(history.history['loss'][-1]),
-            'final_val_loss': float(history.history['val_loss'][-1]),
-            'best_val_accuracy': float(max(history.history['val_accuracy'])),
-            'best_val_accuracy_epoch': int(np.argmax(history.history['val_accuracy']) + 1),
             'train_accuracy_history': [float(x) for x in history.history['accuracy']],
-            'val_accuracy_history': [float(x) for x in history.history['val_accuracy']],
-            'train_loss_history': [float(x) for x in history.history['loss']],
-            'val_loss_history': [float(x) for x in history.history['val_loss']]
+            'train_loss_history': [float(x) for x in history.history['loss']]
         }
+        
+        # Add validation metrics only if they exist (not in LOSO without validation split)
+        if 'val_accuracy' in history.history:
+            eval_results['training_history'].update({
+                'final_val_accuracy': float(history.history['val_accuracy'][-1]),
+                'final_val_loss': float(history.history['val_loss'][-1]),
+                'best_val_accuracy': float(max(history.history['val_accuracy'])),
+                'best_val_accuracy_epoch': int(np.argmax(history.history['val_accuracy']) + 1),
+                'val_accuracy_history': [float(x) for x in history.history['val_accuracy']],
+                'val_loss_history': [float(x) for x in history.history['val_loss']]
+            })
     
     # Save evaluation results
     eval_path = os.path.join(output_dir, f'evaluation_{timestamp}.json')
@@ -248,8 +253,14 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     if history is not None:
         epochs_range = range(1, len(history.history['accuracy']) + 1)
         axes[2, 0].plot(epochs_range, history.history['accuracy'], 'b-', label='Training Accuracy', linewidth=2)
-        axes[2, 0].plot(epochs_range, history.history['val_accuracy'], 'r-', label='Validation Accuracy', linewidth=2)
-        axes[2, 0].set_title('Training & Validation Accuracy', fontsize=14)
+        
+        # Plot validation accuracy only if it exists
+        if 'val_accuracy' in history.history:
+            axes[2, 0].plot(epochs_range, history.history['val_accuracy'], 'r-', label='Validation Accuracy', linewidth=2)
+            axes[2, 0].set_title('Training & Validation Accuracy', fontsize=14)
+        else:
+            axes[2, 0].set_title('Training Accuracy', fontsize=14)
+            
         axes[2, 0].set_xlabel('Epochs')
         axes[2, 0].set_ylabel('Accuracy')
         axes[2, 0].legend()
@@ -257,8 +268,14 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
         axes[2, 0].set_ylim(0, 1.05)
         
         axes[2, 1].plot(epochs_range, history.history['loss'], 'b-', label='Training Loss', linewidth=2)
-        axes[2, 1].plot(epochs_range, history.history['val_loss'], 'r-', label='Validation Loss', linewidth=2)
-        axes[2, 1].set_title('Training & Validation Loss', fontsize=14)
+        
+        # Plot validation loss only if it exists
+        if 'val_loss' in history.history:
+            axes[2, 1].plot(epochs_range, history.history['val_loss'], 'r-', label='Validation Loss', linewidth=2)
+            axes[2, 1].set_title('Training & Validation Loss', fontsize=14)
+        else:
+            axes[2, 1].set_title('Training Loss', fontsize=14)
+            
         axes[2, 1].set_xlabel('Epochs')
         axes[2, 1].set_ylabel('Loss')
         axes[2, 1].legend()

@@ -42,7 +42,15 @@ class Cnn1dModelCreator:
                 'activation': trial.suggest_categorical('activation', ['relu', 'tanh', 'swish']),
                 'dense_units': trial.suggest_int('dense_units', 32, 128),
                 'learning_rate': trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True),
-                'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64])
+                'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64]),
+                # Data augmentation parameters - 基于论文研究的保守设置
+                'augment_factor': trial.suggest_int('augment_factor', 1, 2),
+                'jitter_noise_level': trial.suggest_float('jitter_noise_level', 0.005, 0.015),
+                'time_warp_max_speed': trial.suggest_int('time_warp_max_speed', 2, 3),
+                'scale_range_min': trial.suggest_float('scale_range_min', 0.95, 0.98),
+                'scale_range_max': trial.suggest_float('scale_range_max', 1.02, 1.05),
+                'augment_prob': trial.suggest_float('augment_prob', 0.3, 0.6),
+                        # Kalman filter parameters removed - tests showed degraded performance
             }
             for i in range(params['n_conv_layers']):
                 params[f'conv{i+1}_filters'] = trial.suggest_int(f'conv{i+1}_filters', 32, 128, log=True)
@@ -52,6 +60,9 @@ class Cnn1dModelCreator:
                 params['conv_dropout'] = trial.suggest_float('conv_dropout', 0.1, 0.5)
             if params['use_dense_dropout']:
                 params['dense_dropout'] = trial.suggest_float('dense_dropout', 0.2, 0.6)
+            
+            # Convert scale range to list format
+            params['scale_range'] = [params['scale_range_min'], params['scale_range_max']]
             return params
 
     def create_model(self, params, arduino_mode=False, callbacks=None):
@@ -76,7 +87,9 @@ class Cnn1dModelCreator:
                     model.add(layers.Conv1D(params[f'conv{i+1}_filters'], params[f'conv{i+1}_kernel'], activation=params['activation']))
                 if params['use_batch_norm']:
                     model.add(layers.BatchNormalization())
-                model.add(layers.MaxPooling1D(2))
+                # 只在前3层使用MaxPooling，避免维度过小
+                if i < 3:
+                    model.add(layers.MaxPooling1D(2))
                 if params['use_conv_dropout']:
                     model.add(layers.Dropout(params['conv_dropout']))
             

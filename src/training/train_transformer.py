@@ -43,7 +43,15 @@ class TransformerModelCreator:
                 'activation': trial.suggest_categorical('activation', ['relu', 'gelu', 'swish']),
                 'dense_units': trial.suggest_int('dense_units', 32, 128),
                 'learning_rate': trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True),
-                'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64])
+                'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64]),
+                
+                # 数据增强参数 - 基于论文研究的保守设置
+                'augment_factor': trial.suggest_int('augment_factor', 1, 2),
+                'jitter_noise_level': trial.suggest_float('jitter_noise_level', 0.005, 0.015),
+                'time_warp_max_speed': trial.suggest_int('time_warp_max_speed', 2, 3),
+                'scale_range_min': trial.suggest_float('scale_range_min', 0.95, 0.98),
+                'scale_range_max': trial.suggest_float('scale_range_max', 1.02, 1.05),
+                'augment_prob': trial.suggest_float('augment_prob', 0.3, 0.6)
             }
             while params['d_model'] % params['num_heads'] != 0:
                 params['num_heads'] = trial.suggest_categorical('num_heads', [2, 4, 8])
@@ -54,6 +62,10 @@ class TransformerModelCreator:
                 params['transformer_dropout'] = trial.suggest_float('transformer_dropout', 0.1, 0.3)
             if params['use_dense_dropout']:
                 params['dense_dropout'] = trial.suggest_float('dense_dropout', 0.2, 0.6)
+            
+            # 构建scale_range
+            params['scale_range'] = [params['scale_range_min'], params['scale_range_max']]
+            
             return params
 
     def create_model(self, params, arduino_mode=False, callbacks=None):
@@ -97,7 +109,7 @@ class TransformerModelCreator:
             x = layers.GlobalAveragePooling1D()(x)
             x = layers.Dense(params['dense_units'], activation=params['activation'])(x)
             if params.get('use_dense_dropout', False):
-                x = layers.Dropout(params['dense_dropout'])
+                x = layers.Dropout(params['dense_dropout'])(x)
             outputs = layers.Dense(N_CLASSES, activation='softmax')(x)
             lr = params['learning_rate']
             

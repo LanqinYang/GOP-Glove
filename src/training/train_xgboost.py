@@ -59,15 +59,28 @@ class XgboostModelCreator:
                 'min_child_weight': trial.suggest_int('min_child_weight', 1, 5)
             }
         else:
-            return {
+            params = {
                 'n_estimators': trial.suggest_int('n_estimators', 100, 1000),
                 'max_depth': trial.suggest_int('max_depth', 3, 10),
                 'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
                 'subsample': trial.suggest_float('subsample', 0.6, 1.0),
                 'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
                 'gamma': trial.suggest_float('gamma', 0, 5),
-                'min_child_weight': trial.suggest_int('min_child_weight', 1, 10)
+                'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
+                
+                            # 数据增强参数 - 基于论文研究的保守设置
+            'augment_factor': trial.suggest_int('augment_factor', 1, 2),
+            'jitter_noise_level': trial.suggest_float('jitter_noise_level', 0.005, 0.015),
+            'time_warp_max_speed': trial.suggest_int('time_warp_max_speed', 2, 3),
+            'scale_range_min': trial.suggest_float('scale_range_min', 0.95, 0.98),
+            'scale_range_max': trial.suggest_float('scale_range_max', 1.02, 1.05),
+            'augment_prob': trial.suggest_float('augment_prob', 0.3, 0.6)
             }
+            
+            # 构建scale_range
+            params['scale_range'] = [params['scale_range_min'], params['scale_range_max']]
+            
+            return params
 
     def create_model(self, params, arduino_mode=False, callbacks=None):
         return xgb.XGBClassifier(

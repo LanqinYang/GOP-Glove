@@ -30,19 +30,26 @@ data:
     9: "Nine"
     10: "Static"
   
-  # 数据增强
+  # 数据增强 - 基于最新研究优化
   augmentation:
-    # Whether to enable augmentation. Can be overridden by the --augment flag.
     enabled: true
-    # The factor by which to increase the training dataset size.
-    # E.g., 2 means the training set will be tripled (original + 2 augmented copies).
-    augment_factor: 2
-    # Jittering adds random noise to each time step.
-    jitter_noise_level: 0.02 # A small fraction of the data's standard deviation
-    # Scaling randomly multiplies the entire sequence's amplitude.
-    scale_range: [0.9, 1.1] # Scale between 90% and 110%
-    # Time warping randomly stretches and compresses parts of the sequence.
-    time_warp_max_speed: 3 # Speed can vary between 1/3x and 3x
+    augment_factor: 2 # 增加数据增强倍数以提升鲁棒性
+    jitter_noise_level: 0.01 # 适度增加噪声以提升跨被试泛化能力
+    scale_range: [0.95, 1.05] # 适度增加缩放范围处理幅度变异
+    time_warp_max_speed: 3 # 增加时间扭曲强度处理时序变异
+    
+  # 新增：滑动窗口标准化 (基于2025年最新研究)
+  sliding_window_normalization:
+    enabled: true
+    window_size: 200
+    overlap_ratio: 0.5
+    
+  # 新增：特征解耦配置 (对抗域适应)
+  feature_disentanglement:
+    enabled: true
+    adversarial_weight: 0.1 # 对抗损失权重
+    gesture_branch_depth: 2
+    subject_branch_depth: 1
   
   # 数据预处理
   preprocessing:
