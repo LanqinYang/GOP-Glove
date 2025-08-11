@@ -20,9 +20,6 @@ def model_training(args):
     elif args.model_type == 'XGBoost':
         from src.training.train_xgboost import XgboostModelCreator
         model_creator = XgboostModelCreator()
-    elif args.model_type == 'RAC':
-        from src.training.train_robust_adaptive_cnn import RobustAdaptiveCnnModelCreator
-        model_creator = RobustAdaptiveCnnModelCreator()
     elif args.model_type == 'Transformer_Encoder':
         from src.training.train_transformer import TransformerModelCreator
         model_creator = TransformerModelCreator()
@@ -54,7 +51,7 @@ def main():
     parser.add_argument('--csv_dir', default='datasets/gesture_csv', help="Directory with gesture CSV files (using original data for best performance)")
     parser.add_argument('--output_dir', default='models/trained', help="Directory to save trained model artifacts")
     parser.add_argument('--model_type', required=True,
-                             choices=['1D_CNN', 'XGBoost', 'RAC', 'Transformer_Encoder', 'ADANN', 'ADANN_LightGBM', 'LightGBM'],
+                             choices=['1D_CNN', 'XGBoost', 'Transformer_Encoder', 'ADANN', 'ADANN_LightGBM', 'LightGBM'],
                              help='Type of model to train')
     parser.add_argument('--epochs', type=int, default=100, help="Number of training epochs (for TF models)")
     parser.add_argument('--n_trials', type=int, default=50, help="Number of Optuna trials for hyperparameter optimization")
