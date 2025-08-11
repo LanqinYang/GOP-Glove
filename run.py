@@ -32,6 +32,9 @@ def model_training(args):
     elif args.model_type == 'ADANN_LightGBM':
         from src.training.train_adann_lightgbm import AdannLightgbmModelCreator
         model_creator = AdannLightgbmModelCreator()
+    elif args.model_type == 'LightGBM':
+        from src.training.train_lightgbm import LightgbmModelCreator
+        model_creator = LightgbmModelCreator()
     else:
         print(f"ERROR: Unknown model type '{args.model_type}'")
         return 1
@@ -48,10 +51,10 @@ def main():
     
     # Model training command
     # No subparsers needed if training is the main function
-    parser.add_argument('--csv_dir', default='datasets/gesture_csv', help="Directory with gesture CSV files")
+    parser.add_argument('--csv_dir', default='datasets/gesture_csv', help="Directory with gesture CSV files (using original data for best performance)")
     parser.add_argument('--output_dir', default='models/trained', help="Directory to save trained model artifacts")
     parser.add_argument('--model_type', required=True,
-                             choices=['1D_CNN', 'XGBoost', 'RAC', 'Transformer_Encoder', 'ADANN', 'ADANN_LightGBM'],
+                             choices=['1D_CNN', 'XGBoost', 'RAC', 'Transformer_Encoder', 'ADANN', 'ADANN_LightGBM', 'LightGBM'],
                              help='Type of model to train')
     parser.add_argument('--epochs', type=int, default=100, help="Number of training epochs (for TF models)")
     parser.add_argument('--n_trials', type=int, default=50, help="Number of Optuna trials for hyperparameter optimization")

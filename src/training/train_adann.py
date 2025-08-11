@@ -23,6 +23,7 @@ from scipy.stats import skew, kurtosis
 import optuna
 import warnings
 warnings.filterwarnings('ignore')
+import os
 
 
 class AdannModelWrapper:
@@ -132,23 +133,85 @@ class AdannModelWrapper:
         return [loss, accuracy]
     
     def save(self, filepath):
-        """保存模型 - 兼容Keras格式"""
-        if self.trained:
-            # 保存PyTorch模型状态
-            torch_filepath = filepath.replace('.keras', '.pth')
-            torch.save({
-                'model_state_dict': self.pytorch_model.state_dict(),
+        """保存模型 - 统一为与 ADANN_LightGBM 相同的打包风格"""
+        if self.trained and self.pytorch_model is not None:
+            # 确保模型在评估模式
+            self.pytorch_model.eval()
+
+            # 收集训练时挂载在模型上的工具对象（若存在）
+            extras = {}
+            for key in ['gesture_encoder', 'subject_encoder', 'scaler', 'feature_extractor_obj']:
+                if hasattr(self.pytorch_model, key):
+                    extras[key] = getattr(self.pytorch_model, key)
+
+            # 统一格式：含有 format_version 与明确的键名
+            save_package = {
+                'format_version': 2,
+                'adann_model': self.pytorch_model,                 # 完整对象
+                'adann_state_dict': self.pytorch_model.state_dict(),# 也保存权重
                 'params': self.params,
-                'trained': self.trained
-            }, torch_filepath)
-            print(f"✅ ADANN model saved to {torch_filepath}")
+                'trained': self.trained,
+                **extras
+            }
+
+            torch.save(save_package, filepath)
+            print(f"✅ ADANN model package saved to {filepath}")
         else:
             print("⚠️ Model not trained, cannot save.")
-    
+
+    # 你的load函数也需要相应修改
     def load(self, filepath):
-        """加载模型"""
-        self.pytorch_model.load_state_dict(torch.load(filepath))
-        self.trained = True
+        """加载模型 - 兼容新旧两种保存格式"""
+        if not os.path.exists(filepath):
+            print(f"⚠️ File not found: {filepath}")
+            return
+
+        package = torch.load(filepath, map_location=torch.device('cpu'))
+        if isinstance(package, dict) and 'adann_model' in package:
+            # 新版：完整对象
+            self.pytorch_model = package['adann_model']
+            # 挂载工具对象（若存在）
+            for key in ['gesture_encoder', 'subject_encoder', 'scaler', 'feature_extractor_obj']:
+                if key in package:
+                    setattr(self.pytorch_model, key, package[key])
+            self.params = package.get('params', self.params)
+            self.trained = bool(package.get('trained', True))
+            self.pytorch_model.eval()
+            print(f"✅ ADANN model (v2) loaded from {filepath}")
+        elif isinstance(package, dict) and 'model_object' in package:
+            # 旧版：沿用原字段
+            self.pytorch_model = package['model_object']
+            self.params = package.get('params', self.params)
+            self.trained = True
+            self.pytorch_model.eval()
+            print(f"✅ ADANN model (legacy) loaded from {filepath}")
+        else:
+            # 仅有 state_dict 的情况，尝试重建
+            state_dict = package.get('model_state_dict') or package.get('adann_state_dict')
+            if state_dict is None:
+                raise ValueError("Unrecognized ADANN model package format")
+
+            # 尝试基于特征器恢复输入维度
+            if 'feature_extractor_obj' in package:
+                extractor = package['feature_extractor_obj']
+                dummy = np.random.randn(100, 5).astype(np.float32)
+                input_size = extractor.extract_comprehensive_features(dummy).shape[0]
+            else:
+                from .train_adann import EnhancedFeatureExtractor
+                dummy = np.random.randn(100, 5).astype(np.float32)
+                input_size = EnhancedFeatureExtractor().extract_comprehensive_features(dummy).shape[0]
+
+            from .train_adann import AdversarialFeatureExtractor
+            adann = AdversarialFeatureExtractor(
+                input_size=input_size,
+                feature_size=self.params.get('feature_size', 64),
+                n_gestures=11, n_subjects=6
+            )
+            adann.load_state_dict(state_dict)
+            self.pytorch_model = adann
+            self.trained = True
+            self.pytorch_model.eval()
+            print(f"✅ ADANN model (reconstructed) loaded from {filepath}")
 
 class GradientReversalLayer(torch.autograd.Function):
     """梯度反转层 - ADANN的核心组件"""
@@ -225,58 +288,92 @@ class EnhancedFeatureExtractor:
         self.scaler = StandardScaler()
         
     def extract_comprehensive_features(self, sample):
-        """提取综合特征集"""
+        """提取综合特征集（数值稳定版，避免NaN/Inf）"""
         features = []
-        
-        # 对每个通道提取特征
+
         for ch in range(sample.shape[1]):
             channel_data = sample[:, ch]
-            
-            # 1. 时域统计特征 (14个)
-            features.extend([
-                np.mean(channel_data),           # 均值
-                np.std(channel_data),            # 标准差
-                np.var(channel_data),            # 方差
-                np.min(channel_data),            # 最小值
-                np.max(channel_data),            # 最大值
-                np.ptp(channel_data),            # 峰峰值
-                np.median(channel_data),         # 中位数
-                skew(channel_data),              # 偏度
-                kurtosis(channel_data),          # 峰度
-                np.sqrt(np.mean(channel_data**2)), # RMS
-                np.mean(np.abs(channel_data)),   # MAV
-                np.sum(np.abs(np.diff(channel_data))), # WL
-                np.sum(np.diff(np.sign(channel_data)) != 0), # ZC
-                np.sum(np.diff(np.sign(np.diff(channel_data))) != 0) # SSC
-            ])
-            
-            # 2. 频域特征 (8个)
+
+            # 时域特征（带保护）
+            mean_val = float(np.mean(channel_data)) if len(channel_data) > 0 else 0.0
+            std_val = float(np.std(channel_data)) if len(channel_data) > 0 else 0.0
+            var_val = float(np.var(channel_data)) if len(channel_data) > 0 else 0.0
+            min_val = float(np.min(channel_data)) if len(channel_data) > 0 else 0.0
+            max_val = float(np.max(channel_data)) if len(channel_data) > 0 else 0.0
+            ptp_val = float(np.ptp(channel_data)) if len(channel_data) > 0 else 0.0
+            median_val = float(np.median(channel_data)) if len(channel_data) > 0 else 0.0
+
             try:
-                freqs, psd = signal.welch(channel_data, fs=200, nperseg=min(64, len(channel_data)))
+                ch_skew = skew(channel_data) if len(channel_data) > 2 else 0.0
+                ch_skew = 0.0 if (np.isnan(ch_skew) or np.isinf(ch_skew)) else float(ch_skew)
+            except Exception:
+                ch_skew = 0.0
+
+            try:
+                ch_kurt = kurtosis(channel_data) if len(channel_data) > 2 else 0.0
+                ch_kurt = 0.0 if (np.isnan(ch_kurt) or np.isinf(ch_kurt)) else float(ch_kurt)
+            except Exception:
+                ch_kurt = 0.0
+
+            if len(channel_data) > 1:
+                mean_abs_diff = float(np.mean(np.abs(np.diff(channel_data))))
+                zero_crossings = int(len(np.where(np.diff(np.sign(channel_data)))[0]))
+                wl_val = float(np.sum(np.abs(np.diff(channel_data))))
+            else:
+                mean_abs_diff = 0.0
+                zero_crossings = 0
+                wl_val = 0.0
+
+            rms_val = float(np.sqrt(np.mean(channel_data**2))) if len(channel_data) > 0 else 0.0
+            mav_val = float(np.mean(np.abs(channel_data))) if len(channel_data) > 0 else 0.0
+
+            features.extend([
+                mean_val, std_val, var_val, min_val, max_val, ptp_val, median_val,
+                ch_skew, ch_kurt, rms_val, mav_val, wl_val, mean_abs_diff, zero_crossings
+            ])
+
+            # 频域特征（带保护）
+            try:
+                freqs, psd = signal.periodogram(channel_data, fs=250)
+                total_power = float(np.sum(psd))
+                if total_power > 1e-12:
+                    psd_norm = psd / total_power
+                    spectral_centroid = float(np.sum(freqs * psd_norm))
+                    spectral_spread = float(np.sqrt(np.sum(((freqs - spectral_centroid)**2) * psd_norm)))
+                    spectral_entropy = float(-np.sum(psd_norm * np.log2(psd_norm + 1e-12)))
+                else:
+                    spectral_centroid = 0.0
+                    spectral_spread = 0.0
+                    spectral_entropy = 0.0
+
+                dominant_freq = float(freqs[np.argmax(psd)]) if psd.size > 0 else 0.0
+                low_power = float(np.sum(psd[freqs <= 50])) if psd.size > 0 else 0.0
+                mid_power = float(np.sum(psd[(freqs > 50) & (freqs <= 100)])) if psd.size > 0 else 0.0
+                high_power = float(np.sum(psd[freqs > 100])) if psd.size > 0 else 0.0
+
                 features.extend([
-                    np.sum(freqs * psd) / np.sum(psd),  # 谱质心
-                    freqs[np.argmax(psd)],              # 主导频率
-                    np.sum(psd),                        # 总功率
-                    np.sqrt(np.sum(((freqs - np.sum(freqs * psd) / np.sum(psd))**2) * psd) / np.sum(psd)), # 谱扩展
-                    -np.sum(psd * np.log2(psd + 1e-10)) / np.log2(len(psd)), # 谱熵
-                    np.sum(psd[freqs <= 50]),           # 低频功率
-                    np.sum(psd[(freqs > 50) & (freqs <= 100)]), # 中频功率
-                    np.sum(psd[freqs > 100])            # 高频功率
+                    spectral_centroid, dominant_freq, total_power, spectral_spread,
+                    spectral_entropy, low_power, mid_power, high_power
                 ])
-            except:
-                features.extend([0] * 8)
-            
-            # 3. 小波特征 (5个)
+            except Exception:
+                features.extend([0.0] * 8)
+
+            # 小波特征（带保护）
             try:
                 from scipy.signal import cwt, ricker
                 scales = np.arange(1, 6)
                 coeffs = cwt(channel_data, ricker, scales)
                 for i in range(5):
-                    features.append(np.sum(coeffs[i]**2))  # 各尺度能量
-            except:
-                features.extend([0] * 5)
-        
-        return np.array(features)
+                    energy = float(np.sum(coeffs[i]**2))
+                    energy = 0.0 if (np.isnan(energy) or np.isinf(energy)) else energy
+                    features.append(energy)
+            except Exception:
+                features.extend([0.0] * 5)
+
+        features = np.array(features, dtype=np.float32)
+        # 全局兜底，防止任何残留的NaN/Inf
+        features = np.nan_to_num(features, nan=0.0, posinf=1.0, neginf=-1.0)
+        return features
 
 class AdannModelCreator:
     """ADANN模型创建器 - 符合pipeline标准"""
@@ -379,6 +476,20 @@ class AdannModelCreator:
         # 特征提取
         X_train_features = self._extract_features(X_train)
         X_val_features = self._extract_features(X_val)
+
+        # 特征清理：用训练集特征均值替换NaN，并兜底处理Inf
+        if np.any(np.isnan(X_train_features)):
+            train_means = np.nanmean(X_train_features, axis=0)
+            nan_mask = np.isnan(X_train_features)
+            # 使用对应列的均值填充
+            X_train_features[nan_mask] = np.take(train_means, np.where(nan_mask)[1])
+        if np.any(np.isnan(X_val_features)):
+            train_means = np.nanmean(X_train_features, axis=0)
+            nan_mask = np.isnan(X_val_features)
+            X_val_features[nan_mask] = np.take(train_means, np.where(nan_mask)[1])
+
+        X_train_features = np.nan_to_num(X_train_features, nan=0.0, posinf=1.0, neginf=-1.0)
+        X_val_features = np.nan_to_num(X_val_features, nan=0.0, posinf=1.0, neginf=-1.0)
         
         # 特征标准化
         X_train_scaled = self.scaler.fit_transform(X_train_features)
@@ -448,6 +559,11 @@ class AdannModelCreator:
                 domain_loss = domain_criterion(domain_pred, subject_labels) * hyperparams['domain_loss_weight']
                 
                 total_batch_loss = gesture_loss + domain_loss
+
+                # 训练稳定性保护：跳过异常loss
+                if torch.isnan(total_batch_loss) or torch.isinf(total_batch_loss):
+                    print("Warning: NaN/Inf loss detected, skipping batch")
+                    continue
                 
                 # 反向传播
                 total_batch_loss.backward()

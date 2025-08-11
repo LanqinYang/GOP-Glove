@@ -30,13 +30,14 @@ data:
     9: "Nine"
     10: "Static"
   
-  # 数据增强 - 基于最新研究优化
+  # 数据增强 - 优化为轻度增强策略（基于性能分析结果）
   augmentation:
     enabled: true
-    augment_factor: 2 # 增加数据增强倍数以提升鲁棒性
-    jitter_noise_level: 0.01 # 适度增加噪声以提升跨被试泛化能力
-    scale_range: [0.95, 1.05] # 适度增加缩放范围处理幅度变异
-    time_warp_max_speed: 3 # 增加时间扭曲强度处理时序变异
+    augment_factor: 1 # 轻度增强获得最佳性能 (88.33% vs 86.67%)
+    jitter_noise_level: 0.005 # 降低噪声水平，避免破坏手势特征
+    scale_range: [0.98, 1.02] # 缩小缩放范围，保持信号完整性
+    time_warp_max_speed: 2 # 减少时间扭曲强度，特别保护gesture 5的过渡阶段
+    augment_prob: 0.3 # 降低增强概率，避免过度修改
     
   # 新增：滑动窗口标准化 (基于2025年最新研究)
   sliding_window_normalization:

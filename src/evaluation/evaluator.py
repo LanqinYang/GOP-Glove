@@ -10,6 +10,19 @@ import seaborn as sns
 from collections import Counter
 from sklearn.metrics import classification_report, confusion_matrix
 
+def get_history_value(history, key):
+    """兼容Keras和非Keras模型的history获取"""
+    if history is None:
+        return []
+    if hasattr(history, 'history'):
+        # Keras格式 (TensorFlow/PyTorch包装)
+        return history.history.get(key, [])
+    elif isinstance(history, dict):
+        # 字典格式 (XGBoost, LightGBM等)
+        return history.get(key, [])
+    else:
+        return []
+
 def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestamp, history=None, class_names=None, fold_summary=None):
     """
     Comprehensive model evaluation with detailed metrics and visualizations
@@ -48,6 +61,13 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
         # This is the fallback for Keras models
         y_pred_proba = model.predict(X_test)
 
+    # Handle NaN values in predictions
+    if np.any(np.isnan(y_pred_proba)):
+        print(f"   Warning: Found NaN values in predictions, replacing with uniform distribution")
+        nan_mask = np.isnan(y_pred_proba)
+        n_classes = y_pred_proba.shape[1]
+        y_pred_proba[nan_mask] = 1.0 / n_classes  # Replace with uniform distribution
+    
     # Derive integer class predictions from the probabilities
     y_pred = np.argmax(y_pred_proba, axis=1)
     
@@ -96,6 +116,12 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     # 7. Confidence analysis
     print("\n7. Confidence Analysis:")
     confidence_scores = np.max(y_pred_proba, axis=1)
+    
+    # Handle NaN values in confidence scores
+    if np.any(np.isnan(confidence_scores)):
+        print(f"   Warning: Found {np.sum(np.isnan(confidence_scores))} NaN confidence scores, replacing with 0")
+        confidence_scores = np.nan_to_num(confidence_scores, nan=0.0)
+    
     print(f"   Average confidence: {np.mean(confidence_scores):.4f}")
     print(f"   Min confidence: {np.min(confidence_scores):.4f}")
     print(f"   Max confidence: {np.max(confidence_scores):.4f}")
@@ -146,23 +172,27 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     
     # Add training history if available
     if history is not None:
+        accuracy_hist = get_history_value(history, 'accuracy')
+        loss_hist = get_history_value(history, 'loss')
         eval_results['training_history'] = {
-            'epochs_trained': len(history.history['accuracy']),
-            'final_train_accuracy': float(history.history['accuracy'][-1]),
-            'final_train_loss': float(history.history['loss'][-1]),
-            'train_accuracy_history': [float(x) for x in history.history['accuracy']],
-            'train_loss_history': [float(x) for x in history.history['loss']]
+            'epochs_trained': len(accuracy_hist),
+            'final_train_accuracy': float(accuracy_hist[-1]) if accuracy_hist else 0.0,
+            'final_train_loss': float(loss_hist[-1]) if loss_hist else 0.0,
+            'train_accuracy_history': [float(x) for x in accuracy_hist],
+            'train_loss_history': [float(x) for x in loss_hist]
         }
         
         # Add validation metrics only if they exist (not in LOSO without validation split)
-        if 'val_accuracy' in history.history:
+        val_accuracy_hist = get_history_value(history, 'val_accuracy')
+        val_loss_hist = get_history_value(history, 'val_loss')
+        if val_accuracy_hist:
             eval_results['training_history'].update({
-                'final_val_accuracy': float(history.history['val_accuracy'][-1]),
-                'final_val_loss': float(history.history['val_loss'][-1]),
-                'best_val_accuracy': float(max(history.history['val_accuracy'])),
-                'best_val_accuracy_epoch': int(np.argmax(history.history['val_accuracy']) + 1),
-                'val_accuracy_history': [float(x) for x in history.history['val_accuracy']],
-                'val_loss_history': [float(x) for x in history.history['val_loss']]
+                'final_val_accuracy': float(val_accuracy_hist[-1]),
+                'final_val_loss': float(val_loss_hist[-1]) if val_loss_hist else 0.0,
+                'best_val_accuracy': float(max(val_accuracy_hist)),
+                'best_val_accuracy_epoch': int(np.argmax(val_accuracy_hist) + 1),
+                'val_accuracy_history': [float(x) for x in val_accuracy_hist],
+                'val_loss_history': [float(x) for x in val_loss_hist]
             })
     
     # Save evaluation results
@@ -251,27 +281,34 @@ def comprehensive_evaluation(model, X_test, y_test, scaler, output_dir, timestam
     
     # Plots 7 & 8: Training history
     if history is not None:
-        epochs_range = range(1, len(history.history['accuracy']) + 1)
-        axes[2, 0].plot(epochs_range, history.history['accuracy'], 'b-', label='Training Accuracy', linewidth=2)
+        accuracy_hist = get_history_value(history, 'accuracy')
+        loss_hist = get_history_value(history, 'loss')
+        val_accuracy_hist = get_history_value(history, 'val_accuracy')
+        val_loss_hist = get_history_value(history, 'val_loss')
         
-        # Plot validation accuracy only if it exists
-        if 'val_accuracy' in history.history:
-            axes[2, 0].plot(epochs_range, history.history['val_accuracy'], 'r-', label='Validation Accuracy', linewidth=2)
-            axes[2, 0].set_title('Training & Validation Accuracy', fontsize=14)
-        else:
-            axes[2, 0].set_title('Training Accuracy', fontsize=14)
+        if accuracy_hist:
+            epochs_range = range(1, len(accuracy_hist) + 1)
+            axes[2, 0].plot(epochs_range, accuracy_hist, 'b-', label='Training Accuracy', linewidth=2)
             
-        axes[2, 0].set_xlabel('Epochs')
-        axes[2, 0].set_ylabel('Accuracy')
-        axes[2, 0].legend()
-        axes[2, 0].grid(True, alpha=0.3)
-        axes[2, 0].set_ylim(0, 1.05)
+            # Plot validation accuracy only if it exists
+            if val_accuracy_hist:
+                axes[2, 0].plot(epochs_range, val_accuracy_hist, 'r-', label='Validation Accuracy', linewidth=2)
+                axes[2, 0].set_title('Training & Validation Accuracy', fontsize=14)
+            else:
+                axes[2, 0].set_title('Training Accuracy', fontsize=14)
+                
+            axes[2, 0].set_xlabel('Epochs')
+            axes[2, 0].set_ylabel('Accuracy')
+            axes[2, 0].legend()
+            axes[2, 0].grid(True, alpha=0.3)
+            axes[2, 0].set_ylim(0, 1.05)
         
-        axes[2, 1].plot(epochs_range, history.history['loss'], 'b-', label='Training Loss', linewidth=2)
-        
-        # Plot validation loss only if it exists
-        if 'val_loss' in history.history:
-            axes[2, 1].plot(epochs_range, history.history['val_loss'], 'r-', label='Validation Loss', linewidth=2)
+        if loss_hist:
+            axes[2, 1].plot(epochs_range, loss_hist, 'b-', label='Training Loss', linewidth=2)
+            
+            # Plot validation loss only if it exists
+            if val_loss_hist:
+                axes[2, 1].plot(epochs_range, val_loss_hist, 'r-', label='Validation Loss', linewidth=2)
             axes[2, 1].set_title('Training & Validation Loss', fontsize=14)
         else:
             axes[2, 1].set_title('Training Loss', fontsize=14)
@@ -363,9 +400,10 @@ def generate_loso_summary_plots(history, all_fold_evaluations, output_dir, file_
     fig.suptitle(f'BSL Gesture Recognition - LOSO Final Summary - {file_identifier}', fontsize=18)
 
     # --- Plot 1: Final Model Training Accuracy ---
-    if history and hasattr(history, 'history') and 'accuracy' in history.history:
-        epochs_range = range(1, len(history.history['accuracy']) + 1)
-        axes[0].plot(epochs_range, history.history['accuracy'], 'b-', label='Training Accuracy', linewidth=2)
+    accuracy_hist = get_history_value(history, 'accuracy')
+    if accuracy_hist:
+        epochs_range = range(1, len(accuracy_hist) + 1)
+        axes[0].plot(epochs_range, accuracy_hist, 'b-', label='Training Accuracy', linewidth=2)
         axes[0].set_title('Final Model Training Accuracy', fontsize=14)
         axes[0].set_xlabel('Epochs')
         axes[0].set_ylabel('Accuracy')
@@ -380,9 +418,10 @@ def generate_loso_summary_plots(history, all_fold_evaluations, output_dir, file_
         axes[0].set_yticks([])
 
     # --- Plot 2: Final Model Training Loss ---
-    if history and hasattr(history, 'history') and 'loss' in history.history:
-        epochs_range = range(1, len(history.history['loss']) + 1)
-        axes[1].plot(epochs_range, history.history['loss'], 'r-', label='Training Loss', linewidth=2)
+    loss_hist = get_history_value(history, 'loss')
+    if loss_hist:
+        epochs_range = range(1, len(loss_hist) + 1)
+        axes[1].plot(epochs_range, loss_hist, 'r-', label='Training Loss', linewidth=2)
         axes[1].set_title('Final Model Training Loss', fontsize=14)
         axes[1].set_xlabel('Epochs')
         axes[1].set_ylabel('Loss')

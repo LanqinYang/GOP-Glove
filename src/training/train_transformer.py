@@ -49,8 +49,8 @@ class TransformerModelCreator:
                 'augment_factor': trial.suggest_int('augment_factor', 1, 2),
                 'jitter_noise_level': trial.suggest_float('jitter_noise_level', 0.005, 0.015),
                 'time_warp_max_speed': trial.suggest_int('time_warp_max_speed', 2, 3),
-                'scale_range_min': trial.suggest_float('scale_range_min', 0.95, 0.98),
-                'scale_range_max': trial.suggest_float('scale_range_max', 1.02, 1.05),
+                'scale_min': trial.suggest_float('scale_min', 0.95, 0.98),
+                'scale_max': trial.suggest_float('scale_max', 1.02, 1.05),
                 'augment_prob': trial.suggest_float('augment_prob', 0.3, 0.6)
             }
             while params['d_model'] % params['num_heads'] != 0:
@@ -64,7 +64,7 @@ class TransformerModelCreator:
                 params['dense_dropout'] = trial.suggest_float('dense_dropout', 0.2, 0.6)
             
             # 构建scale_range
-            params['scale_range'] = [params['scale_range_min'], params['scale_range_max']]
+            params['scale_range'] = [params['scale_min'], params['scale_max']]
             
             return params
 
