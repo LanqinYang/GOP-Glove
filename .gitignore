@@ -91,3 +91,8 @@ temp/
 config/secrets.yaml
 .env.local 
 models/trained/ 
+
+# Keep only Arduino sketches (.ino) and the Arduino README tracked under tinyml_inference
+arduino/tinyml_inference/**
+!arduino/tinyml_inference/**/*.ino
+!arduino/tinyml_inference/README.md 
