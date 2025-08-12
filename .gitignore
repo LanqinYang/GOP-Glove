@@ -79,6 +79,9 @@ Thumbs.db
 *.elf
 *.map
 
+# Arduino model headers (keep .ino tracked)
+arduino/tinyml_inference/**/*.h
+
 # Temporary files
 tmp/
 temp/

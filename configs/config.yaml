@@ -76,7 +76,7 @@ arduino:
 # 模型配置
 models:
   # 支持的模型类型
-  supported_types: ["1D_CNN", "XGBoost", "CNN_LSTM", "Transformer_Encoder"]
+  supported_types: ["1D_CNN", "XGBoost", "Transformer_Encoder"]
   
   # 默认模型类型
   default_type: "1D_CNN"
@@ -87,7 +87,6 @@ models:
     subdirs:
       1D_CNN: "1D_CNN"
       XGBoost: "XGBoost" 
-      CNN_LSTM: "CNN_LSTM"
       Transformer_Encoder: "Transformer_Encoder"
 
 # 1D-CNN模型配置
@@ -144,31 +143,7 @@ xgboost:
     early_stopping_rounds: 10
     eval_metric: "mlogloss"
 
-# CNN-LSTM模型配置
-cnn_lstm:
-  # 模型架构
-  model:
-    # CNN部分
-    cnn_filters: [32, 64]
-    cnn_kernels: [7, 5]
-    cnn_pooling: [2, 2]
-    
-    # LSTM部分
-    lstm_units: [64, 32]
-    lstm_dropout: 0.2
-    lstm_recurrent_dropout: 0.2
-    
-    # 全连接层
-    dense_units: [64]
-    final_dropout: 0.3
-  
-  # 训练参数
-  training:
-    learning_rate: 1e-3
-    batch_size: 32
-    num_epochs: 100
-    patience: 15
-    gradient_clipping: 1.0
+# 已移除 CNN-LSTM 模型配置
 
 # Transformer Encoder模型配置
 transformer_encoder:

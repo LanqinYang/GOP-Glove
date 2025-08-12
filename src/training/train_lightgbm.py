@@ -337,34 +337,32 @@ class LightgbmModelCreator:
             return X_scaled, scaler
     
     def _extract_arduino_features(self, sample):
-        """Arduino优化的轻量级特征提取"""
+        """Arduino-optimized lightweight features: mean, std, min, max per channel (4 each)."""
         features = []
         for ch in range(sample.shape[1]):
             channel_data = sample[:, ch]
-            features.extend([
-                np.mean(channel_data),
-                np.std(channel_data),
-                np.min(channel_data),
-                np.max(channel_data),
-                np.median(channel_data),
-                skew(channel_data),
-                kurtosis(channel_data)
-            ])
-        return np.array(features)
+            mu = float(np.mean(channel_data)) if len(channel_data) > 0 else 0.0
+            sd = float(np.std(channel_data)) if len(channel_data) > 0 else 0.0
+            mn = float(np.min(channel_data)) if len(channel_data) > 0 else 0.0
+            mx = float(np.max(channel_data)) if len(channel_data) > 0 else 0.0
+            features.extend([mu, sd, mn, mx])
+        return np.array(features, dtype=np.float32)
     
     def define_hyperparams(self, trial, arduino_mode=False):
         """定义超参数搜索空间"""
         if arduino_mode:
-            # Arduino优化参数
+            # Arduino模式：使用固定、可复现且轻量的模型复杂度，保证 standard/loso 一致
             return {
-                'n_estimators': trial.suggest_int('n_estimators', 50, 200),
-                'num_leaves': trial.suggest_int('num_leaves', 10, 50),
-                'learning_rate': trial.suggest_float('learning_rate', 0.05, 0.2),
-                'feature_fraction': trial.suggest_float('feature_fraction', 0.6, 1.0),
-                'bagging_fraction': trial.suggest_float('bagging_fraction', 0.6, 1.0),
-                'min_child_samples': trial.suggest_int('min_child_samples', 5, 50),
-                'reg_alpha': trial.suggest_float('reg_alpha', 0, 0.5),
-                'reg_lambda': trial.suggest_float('reg_lambda', 0, 0.5)
+                'n_estimators': trial.suggest_categorical('n_estimators', [120]),
+                'num_leaves': trial.suggest_categorical('num_leaves', [31]),
+                'max_depth': trial.suggest_categorical('max_depth', [8]),
+                'learning_rate': trial.suggest_categorical('learning_rate', [0.10]),
+                'feature_fraction': trial.suggest_categorical('feature_fraction', [0.80]),
+                'bagging_fraction': trial.suggest_categorical('bagging_fraction', [0.80]),
+                'bagging_freq': trial.suggest_categorical('bagging_freq', [5]),
+                'min_child_samples': trial.suggest_categorical('min_child_samples', [20]),
+                'reg_alpha': trial.suggest_categorical('reg_alpha', [0.10]),
+                'reg_lambda': trial.suggest_categorical('reg_lambda', [0.10])
             }
         else:
             # 完整参数空间

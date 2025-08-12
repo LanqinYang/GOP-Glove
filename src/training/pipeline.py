@@ -12,11 +12,17 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import yaml
 from tsaug import TimeWarp, AddNoise
+import shutil
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping
+# Optional: TensorFlow Model Optimization Toolkit for pruning
+try:
+    import tensorflow_model_optimization as tfmot  # type: ignore
+except Exception:
+    tfmot = None
 import optuna
 from optuna.integration import TFKerasPruningCallback, XGBoostPruningCallback
 # Kalman filter imports removed - tests showed it degraded performance
@@ -200,7 +206,39 @@ def load_and_clean_data(csv_dir, cleaning_mode='none', baseline_samples=5):
 
 # --- TFLite & Arduino Header Generation ---
 
-def generate_arduino_header_tflite(tflite_model, scaler, model_type, timestamp, output_dir):
+# --- Pruning helper (Arduino mode) ---
+def apply_pruning_if_needed(model, arduino_mode, X_train_len=None, batch_size=32, epochs=10):
+    """Optionally wrap model with magnitude pruning for Arduino mode.
+
+    Returns (maybe_wrapped_model, strip_fn, extra_callbacks)
+    - strip_fn: callable to strip pruning from a trained model, or None
+    - extra_callbacks: list of callbacks required for pruning step updates
+    """
+    if not arduino_mode or tfmot is None:
+        return model, None, []
+    try:
+        steps_per_epoch = int(np.ceil(max(1, (X_train_len or 1)) / max(1, batch_size)))
+        end_step = steps_per_epoch * max(1, epochs)
+        pruning_params = {
+            'pruning_schedule': tfmot.sparsity.keras.PolynomialDecay(
+                initial_sparsity=0.30,
+                final_sparsity=0.60,
+                begin_step=0,
+                end_step=end_step
+            )
+        }
+        pruned_model = tfmot.sparsity.keras.prune_low_magnitude(model, **pruning_params)
+        # Recompile preserves optimizer/loss/metrics
+        pruned_model.compile(optimizer=model.optimizer, loss=model.loss, metrics=model.metrics)
+        strip_fn = lambda m: tfmot.sparsity.keras.strip_pruning(m)
+        extra_callbacks = [tfmot.sparsity.keras.UpdatePruningStep()]
+        print("Enabled magnitude pruning for Arduino mode (30%->60% polynomial decay).")
+        return pruned_model, strip_fn, extra_callbacks
+    except Exception as e:
+        print(f"⚠️ Pruning not applied: {e}")
+        return model, None, []
+
+def generate_arduino_header_tflite(tflite_model, scaler, model_type, timestamp, output_dir, input_len=None, output_len=None):
     """Generates a C header file for a TFLite model."""
     model_hex = ', '.join(f'0x{b:02x}' for b in tflite_model)
     
@@ -225,6 +263,8 @@ def generate_arduino_header_tflite(tflite_model, scaler, model_type, timestamp, 
 #define BSL_MODEL_H_{timestamp}
 
 const int BSL_MODEL_FEATURES = {n_features};
+const int BSL_MODEL_INPUT_LEN = {input_len if input_len is not None else '/*unknown*/0'};
+const int BSL_MODEL_OUTPUT_LEN = {output_len if output_len is not None else '/*unknown*/0'};
 const float scaler_mean[BSL_MODEL_FEATURES] = {{ {mean_values} }};
 const float scaler_scale[BSL_MODEL_FEATURES] = {{ {scale_values} }};
 
@@ -250,6 +290,12 @@ def generate_lightgbm_arduino_header(model, scaler, model_type, timestamp, outpu
         # Detect underlying estimator
         underlying_estimator = getattr(model, 'lgb_model', model)
         c_code = m2c.export_to_c(underlying_estimator)
+        # Make C code Arduino/C++ friendly: eliminate compound literal in softmax call
+        # Transform: softmax((double[]){ a, b, ... }, 11, varX); ->
+        #            double __logits[] = { a, b, ... }; softmax(__logits, 11, varX);
+        if 'softmax((double[]){' in c_code:
+            c_code = c_code.replace('softmax((double[]){', 'double __logits[] = {')
+            c_code = c_code.replace('}, 11, ', '}; softmax(__logits, 11, ')
         
         # Handle different scaler types
         if hasattr(scaler, 'mean_'):  # StandardScaler
@@ -282,30 +328,17 @@ const int BSL_MODEL_FEATURES = {n_features};
 const float scaler_mean[BSL_MODEL_FEATURES] = {{ {mean_values} }};
 const float scaler_scale[BSL_MODEL_FEATURES] = {{ {scale_values} }};
 
-// Feature normalization function
-void normalize_features(float* features) {{
-    for (int i = 0; i < BSL_MODEL_FEATURES; i++) {{
-        features[i] = (features[i] - scaler_mean[i]) / scaler_scale[i];
-    }}
-}}
-
-// LightGBM model prediction function
+// LightGBM model prediction function (from m2cgen)
 {c_code}
 
-// Main prediction function
+// Main prediction function (C++ friendly wrapper)
 int predict_gesture(float* raw_features) {{
-    float normalized_features[BSL_MODEL_FEATURES];
-    
-    // Copy and normalize features
+    double normalized_features[BSL_MODEL_FEATURES];
     for (int i = 0; i < BSL_MODEL_FEATURES; i++) {{
-        normalized_features[i] = (raw_features[i] - scaler_mean[i]) / scaler_scale[i];
+        normalized_features[i] = (double)((raw_features[i] - scaler_mean[i]) / scaler_scale[i]);
     }}
-    
-    // Get prediction scores
-    double scores[11];  // 11 gesture classes
+    double scores[11];
     score(normalized_features, scores);
-    
-    // Find class with highest score
     int predicted_class = 0;
     double max_score = scores[0];
     for (int i = 1; i < 11; i++) {{
@@ -314,7 +347,6 @@ int predict_gesture(float* raw_features) {{
             predicted_class = i;
         }}
     }}
-    
     return predicted_class;
 }}
 
@@ -355,7 +387,11 @@ int predict_gesture(float* features) {{
     return header_path
 
 def generate_adann_c_header_inline(adann_model, scaler, timestamp, output_dir):
-    """Generate a pure-C Arduino header for ADANN gesture head (no extra deps)."""
+    """Generate a pure-C Arduino header for ADANN with FP32 constants.
+
+    - Store all weights/bias/scaler as float32 constants (fast on M4F FPU)
+    - Provide simple matvec and relu routines
+    """
     import numpy as np
     os.makedirs(output_dir, exist_ok=True)
 
@@ -389,7 +425,7 @@ def generate_adann_c_header_inline(adann_model, scaler, timestamp, output_dir):
     def arr_to_c(name, arr):
         flat = arr.flatten().tolist()
         if len(flat) == 0:
-            return f'const float {name}[0] = { { } }'.replace('{  }', '{ }') + ';\n'
+            return f'const float {name}[0] = {{ }};\n'
         values = ', '.join(f'{float(v):.8f}f' for v in flat)
         return f'const float {name}[{len(flat)}] = {{ {values} }};\n'
 
@@ -398,7 +434,7 @@ def generate_adann_c_header_inline(adann_model, scaler, timestamp, output_dir):
 
     header_path = os.path.join(output_dir, f"bsl_model_ADANN_{timestamp}.h")
     with open(header_path, 'w') as f:
-        f.write(f"""/*\n * ADANN Gesture Head (Pure C)\n * Timestamp: {timestamp}\n */\n""")
+        f.write(f"""/*\n * ADANN Gesture Head (FP32 constants)\n * Timestamp: {timestamp}\n */\n""")
         f.write(f"#ifndef BSL_MODEL_ADANN_H_{timestamp}\n#define BSL_MODEL_ADANN_H_{timestamp}\n\n")
 
         f.write(f"const int ADANN_INPUT_SIZE = {input_size};\n")
@@ -495,7 +531,7 @@ def convert_to_tflite(model, arduino_mode, X_train_scaled=None):
     )
     converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
 
-    # Always enable SELECT_TF_OPS for compatibility with complex layers
+    # Always enable SELECT_TF_OPS for compatibility with complex layers (non-Arduino path)
     converter.target_spec.supported_ops = [
         tf.lite.OpsSet.TFLITE_BUILTINS,
         tf.lite.OpsSet.SELECT_TF_OPS
@@ -503,16 +539,14 @@ def convert_to_tflite(model, arduino_mode, X_train_scaled=None):
     converter._experimental_lower_tensor_list_ops = False
     
     if arduino_mode:
-        print("Applying full integer quantization for Arduino...")
+        print("Applying full integer quantization for Arduino (INT8, no SELECT_TF_OPS)...")
         def representative_dataset():
             for i in range(min(100, len(X_train_scaled))):
                 yield [X_train_scaled[i:i+1].astype(np.float32)]
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
         converter.representative_dataset = representative_dataset
-        converter.target_spec.supported_ops = [
-            tf.lite.OpsSet.TFLITE_BUILTINS_INT8, 
-            tf.lite.OpsSet.SELECT_TF_OPS
-        ]
+        # For Arduino (TFLite Micro), restrict to INT8 builtins only
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
         converter.inference_input_type = tf.int8
         converter.inference_output_type = tf.int8
     else:
@@ -521,6 +555,83 @@ def convert_to_tflite(model, arduino_mode, X_train_scaled=None):
     return converter.convert()
 
 # --- Hyperparameter Optimization ---
+
+def copy_header_to_arduino_dir(model_type: str, header_path: str, mode_suffix: str):
+    """Copy the generated header to the Arduino example directory with canonical name.
+
+    Supported mappings:
+      - 1D_CNN -> arduino/tinyml_inference/1D_CNN_inference/bsl_model_1D_CNN.h
+      - Transformer_Encoder -> arduino/tinyml_inference/Transformer_Encoder_inference/bsl_model_Transformer_Encoder.h
+      - XGBoost -> arduino/tinyml_inference/XGBoost_Arduino_inference/bsl_model_XGBoost_Arduino.h
+      - LightGBM -> arduino/tinyml_inference/LightGBM_Arduino_inference/bsl_model_LightGBM.h
+      - ADANN -> arduino/tinyml_inference/ADANN_inference/bsl_model_ADANN.h
+      - ADANN_LightGBM -> arduino/tinyml_inference/ADANN_LightGBM_inference/bsl_model_ADANN_LightGBM.h
+    """
+    mapping = {
+        '1D_CNN': (
+            os.path.join('arduino', 'tinyml_inference', '1D_CNN_inference'),
+            'bsl_model_1D_CNN.h'
+        ),
+        'Transformer_Encoder': (
+            os.path.join('arduino', 'tinyml_inference', 'Transformer_Encoder_inference'),
+            'bsl_model_Transformer_Encoder.h'
+        ),
+        'XGBoost': (
+            os.path.join('arduino', 'tinyml_inference', 'XGBoost_Arduino_inference'),
+            'bsl_model_XGBoost_Arduino.h'
+        ),
+        'LightGBM': (
+            os.path.join('arduino', 'tinyml_inference', 'LightGBM_Arduino_inference'),
+            'bsl_model_LightGBM.h'
+        ),
+        'ADANN': (
+            os.path.join('arduino', 'tinyml_inference', 'ADANN_inference'),
+            'bsl_model_ADANN.h'
+        ),
+        'ADANN_LightGBM': (
+            os.path.join('arduino', 'tinyml_inference', 'ADANN_LightGBM_inference'),
+            'bsl_model_ADANN_LightGBM.h'
+        )
+    }
+    if model_type not in mapping:
+        return None
+    target_dir, target_name = mapping[model_type]
+    try:
+        os.makedirs(target_dir, exist_ok=True)
+        # 1) Copy to canonical root location
+        target_path = os.path.join(target_dir, target_name)
+        shutil.copyfile(header_path, target_path)
+        print(f"Arduino header copied to: {target_path}")
+
+        # Determine mode for latency folder
+        mode_dir = 'loso' if mode_suffix.startswith('loso') else 'standard'
+
+        # 2) Copy ONLY into Latency_* directory as requested
+        latency_dir = os.path.join(target_dir, f"Latency_{mode_dir}")
+        os.makedirs(latency_dir, exist_ok=True)
+        latency_target_path = os.path.join(latency_dir, target_name)
+        shutil.copyfile(header_path, latency_target_path)
+        print(f"Arduino header copied to (latency): {latency_target_path}")
+
+        # 3) Clean up legacy non-latency folders (loso/standard) headers if present
+        for legacy in ['loso', 'standard']:
+            legacy_dir = os.path.join(target_dir, legacy)
+            legacy_header = os.path.join(legacy_dir, target_name)
+            try:
+                if os.path.isfile(legacy_header):
+                    os.remove(legacy_header)
+                    print(f"Removed legacy header: {legacy_header}")
+                # Remove directory if empty after deletion (do not remove if contains other files like .ino)
+                if os.path.isdir(legacy_dir) and len([p for p in os.listdir(legacy_dir) if not p.startswith('.')]) == 0:
+                    os.rmdir(legacy_dir)
+                    print(f"Removed empty legacy directory: {legacy_dir}")
+            except Exception as e:
+                print(f"⚠️ Failed to clean legacy path {legacy_dir}: {e}")
+
+        return target_path
+    except Exception as e:
+        print(f"⚠️ Failed to copy header to Arduino dir: {e}")
+        return None
 
 def objective_tf(trial, args, model_creator, X_train_orig, y_train_orig, X_val_orig, y_val):
     """Generic Optuna objective function for TensorFlow models with full optimization."""
@@ -550,11 +661,19 @@ def objective_tf(trial, args, model_creator, X_train_orig, y_train_orig, X_val_o
             y_train_aug = y_train_orig
         
         model = model_creator.create_model(params, args.arduino)
+        # Apply pruning in Arduino mode if available
+        model, strip_fn, pruning_callbacks = apply_pruning_if_needed(
+            model,
+            args.arduino,
+            X_train_len=X_train.shape[0],
+            batch_size=params['batch_size'],
+            epochs=args.epochs
+        )
         callbacks = [
             EarlyStopping(patience=5, restore_best_weights=True),
             TFKerasPruningCallback(trial, "val_accuracy")
-        ]
-        epochs = args.epochs if not args.arduino else min(args.epochs, 20)
+        ] + pruning_callbacks
+        epochs = args.epochs
         model.fit(
             X_train, y_train_aug,
             batch_size=params['batch_size'],
@@ -563,6 +682,12 @@ def objective_tf(trial, args, model_creator, X_train_orig, y_train_orig, X_val_o
             callbacks=callbacks,
             verbose=0
         )
+        # If pruning was applied, strip it to get plain weights for evaluation/export
+        if strip_fn is not None:
+            try:
+                model = strip_fn(model)
+            except Exception:
+                pass
         return max(model.history.history['val_accuracy'])
     except Exception as e:
         if isinstance(e, optuna.exceptions.TrialPruned):
@@ -690,27 +815,45 @@ def run_standard_pipeline(args, model_creator, X, y, output_dir, trained_model_d
     # Hyperparameter Optimization - 选择正确的objective函数
     if args.model_type == 'XGBoost':
         objective_func = objective_xgb
+        obj_args = (X_train_feat, y_train, X_val_feat, y_val)
     elif args.model_type == 'LightGBM':
         objective_func = objective_lightgbm
+        obj_args = (X_train_feat, y_train, X_val_feat, y_val)
     else:
+        # TensorFlow系列：将原始数据（未特征提取/缩放）传入 objective，让其内部完成增强与缩放
         objective_func = objective_tf
+        obj_args = (X_train, y_train, X_val, y_val)
     study = optuna.create_study(
             direction='maximize', 
             pruner=optuna.pruners.MedianPruner(),
             sampler=optuna.samplers.TPESampler(seed=SEED)
         )
-    study.optimize(lambda trial: objective_func(trial, args, model_creator, X_train_feat, y_train, X_val_feat, y_val), n_trials=args.n_trials)
+    study.optimize(lambda trial: objective_func(trial, args, model_creator, *obj_args), n_trials=args.n_trials)
     
     # Train final model
     best_params = study.best_params
     print(f"Best validation accuracy: {study.best_value:.4f}")
     print("Best parameters:", best_params)
     final_model = model_creator.create_model(best_params, args.arduino)
-    
+
     epochs = args.epochs
     if args.model_type != 'XGBoost':
-         callbacks = [EarlyStopping(patience=15, restore_best_weights=True)]
+         # Apply pruning if Arduino mode and TF model
+         final_model, strip_fn, pruning_callbacks = apply_pruning_if_needed(
+             final_model,
+             args.arduino,
+             X_train_len=X_train_feat.shape[0],
+             batch_size=best_params.get('batch_size', 32),
+             epochs=epochs
+         )
+         callbacks = [EarlyStopping(patience=15, restore_best_weights=True)] + pruning_callbacks
          history = final_model.fit(X_train_feat, y_train, validation_data=(X_val_feat, y_val), epochs=epochs, callbacks=callbacks, verbose=1)
+         # Strip pruning wrappers before saving/exporting
+         if strip_fn is not None:
+             try:
+                 final_model = strip_fn(final_model)
+             except Exception:
+                 pass
     else: # XGBoost
         final_model.fit(X_train_feat, y_train, eval_set=[(X_val_feat, y_val)], early_stopping_rounds=25, verbose=False)
         history = None
@@ -818,13 +961,43 @@ def run_loso_pipeline(args, model_creator, X, y, subjects, output_dir, trained_m
             history_fold = fold_model.fit(X_train_full_feat, y_train_full, validation_data=(X_val_feat, y_val), verbose=0)
         else:
             # TensorFlow models
-            callbacks=[EarlyStopping(patience=10, restore_best_weights=True)]
+            # Apply pruning for Arduino mode
+            # Determine training features depending on branch
+            if 'X_train_final_feat' in locals():
+                train_X = X_train_final_feat
+                train_y = y_train_final
+                val_X, val_y = None, None
+                x_len = train_X.shape[0]
+            else:
+                # Use scaled features from earlier branch for TF models
+                # Prepare features here to avoid UnboundLocalError
+                X_train_full_feat, scaler = model_creator.extract_and_scale_features(X_train_full, fit=True, arduino_mode=args.arduino)
+                X_test_feat, _ = model_creator.extract_and_scale_features(X_test, scaler=scaler, arduino_mode=args.arduino)
+                X_train_feat, X_val_feat, y_train, y_val = train_test_split(X_train_full_feat, y_train_full, test_size=VAL_SIZE, random_state=SEED, stratify=y_train_full)
+                train_X, train_y = X_train_feat, y_train
+                val_X, val_y = X_val_feat, y_val
+                x_len = train_X.shape[0]
+
+            fold_model, strip_fn, pruning_callbacks = apply_pruning_if_needed(
+                fold_model,
+                args.arduino,
+                X_train_len=x_len,
+                batch_size=study.best_params.get('batch_size', 32),
+                epochs=args.epochs
+            )
+            callbacks=[EarlyStopping(patience=10, restore_best_weights=True)] + pruning_callbacks
             
             # For TensorFlow models, use the optimized training data
             if 'X_train_final_feat' in locals():
-                history_fold = fold_model.fit(X_train_final_feat, y_train_final, epochs=epochs, callbacks=callbacks, verbose=0)
+                history_fold = fold_model.fit(train_X, train_y, epochs=epochs, callbacks=callbacks, verbose=0)
             else:
-                history_fold = fold_model.fit(X_train_feat, y_train, validation_data=(X_val_feat, y_val), epochs=epochs, callbacks=callbacks, verbose=0)
+                history_fold = fold_model.fit(train_X, train_y, validation_data=(val_X, val_y), epochs=epochs, callbacks=callbacks, verbose=0)
+            # Strip pruning before evaluation/export
+            if strip_fn is not None:
+                try:
+                    fold_model = strip_fn(fold_model)
+                except Exception:
+                    pass
             
         fold_eval = comprehensive_evaluation(fold_model, X_test_feat, y_test, scaler, output_dir, f"{args.model_type}_loso_fold_{subject_id}", history=history_fold)
         all_fold_evaluations.append(fold_eval)
@@ -961,6 +1134,7 @@ def save_artifacts(model, scaler, args, trained_model_dir, output_dir, history, 
                         lgb_estimator, lgb_scaler, f"{args.model_type}_LGB_BRANCH", timestamp, trained_model_dir
                     )
                     print(f"Hybrid LightGBM Arduino header saved: {header_path}")
+                    copy_header_to_arduino_dir('ADANN_LightGBM', header_path, mode_suffix)
                 else:
                     print("⚠️ Hybrid LightGBM header skipped: missing lgb estimator or scaler in hybrid model")
             except Exception as e:
@@ -995,10 +1169,14 @@ def save_artifacts(model, scaler, args, trained_model_dir, output_dir, history, 
         with open(header_path, 'w') as f:
             f.write(header_content)
         print(f"Arduino header saved: {header_path}")
+        if args.arduino:
+            copy_header_to_arduino_dir(args.model_type, header_path, mode_suffix)
     elif args.model_type == 'LightGBM':
         # Generate LightGBM Arduino header
         header_path = generate_lightgbm_arduino_header(model, scaler, args.model_type, timestamp, trained_model_dir)
         print(f"LightGBM Arduino header saved: {header_path}")
+        if args.arduino:
+            copy_header_to_arduino_dir(args.model_type, header_path, mode_suffix)
     elif args.model_type in ['ADANN', 'ADANN_LightGBM']:
         print(f"PyTorch model ({args.model_type}): Skipping TFLite conversion")
         # Auto-generate ADANN C header for Arduino latency test
@@ -1021,8 +1199,56 @@ def save_artifacts(model, scaler, args, trained_model_dir, output_dir, history, 
                 adann_scaler = pkg.get('scaler') or pkg.get('adann_scaler') or scaler
                 header_path = generate_adann_c_header_inline(adann_model, adann_scaler, timestamp, trained_model_dir)
                 print(f"ADANN Arduino header saved: {header_path}")
+                if args.arduino:
+                    copy_header_to_arduino_dir('ADANN', header_path, mode_suffix)
             except Exception as e:
                 print(f"⚠️ ADANN header generation skipped: {e}")
+        if args.model_type == 'ADANN_LightGBM':
+            try:
+                # 从包装器中取出 LightGBM 子模型与其 scaler
+                lgb_estimator = None
+                lgb_scaler = None
+                adann_estimator = None
+                adann_scaler = None
+                if hasattr(model, 'hybrid_model') and isinstance(model.hybrid_model, dict):
+                    lgb_estimator = model.hybrid_model.get('lightgbm')
+                    lgb_scaler = model.hybrid_model.get('lgb_scaler') or scaler
+                    adann_estimator = model.hybrid_model.get('adann')
+                    adann_scaler = model.hybrid_model.get('adann_scaler') or scaler
+                if lgb_estimator is not None and lgb_scaler is not None:
+                    header_path = generate_lightgbm_arduino_header(
+                        lgb_estimator, lgb_scaler, f"{args.model_type}_LGB_BRANCH", timestamp, trained_model_dir
+                    )
+                    print(f"Hybrid LightGBM Arduino header saved: {header_path}")
+                    if args.arduino:
+                        copy_header_to_arduino_dir('ADANN_LightGBM', header_path, mode_suffix)
+                else:
+                    print("⚠️ Hybrid LightGBM header skipped: missing lgb estimator or scaler in hybrid model")
+                if adann_estimator is not None and adann_scaler is not None:
+                    adann_header = generate_adann_c_header_inline(adann_estimator, adann_scaler, timestamp, trained_model_dir)
+                    print(f"Hybrid ADANN Arduino header saved: {adann_header}")
+                    if args.arduino:
+                        # Also copy ADANN header into the ADANN_LightGBM Arduino dir for combined inference
+                        try:
+                            mapping_dir = os.path.join('arduino', 'tinyml_inference', 'ADANN_LightGBM_inference')
+                            os.makedirs(mapping_dir, exist_ok=True)
+                            target_name = 'bsl_model_ADANN.h'
+                            target_path = os.path.join(mapping_dir, target_name)
+                            shutil.copyfile(adann_header, target_path)
+                            # copy to latency dirs
+                            for mode_dir in ['Latency_standard', 'Latency_loso']:
+                                os.makedirs(os.path.join(mapping_dir, mode_dir), exist_ok=True)
+                                shutil.copyfile(adann_header, os.path.join(mapping_dir, mode_dir, target_name))
+                            print(f"ADANN header copied to ADANN_LightGBM Arduino dirs: {mapping_dir}")
+                        except Exception as e:
+                            print(f"⚠️ Failed to copy ADANN header into ADANN_LightGBM dir: {e}")
+                else:
+                    print("⚠️ Hybrid ADANN header skipped: missing adann estimator or scaler in hybrid model")
+            except Exception as e:
+                print(f"⚠️ Failed to generate hybrid LightGBM/ADANN Arduino headers: {e}")
+    elif args.model_type == 'Transformer_Encoder' and args.arduino:
+        print("❌ Arduino export skipped: Transformer_Encoder requires BATCH_MATMUL which is not available in current TFLite Micro build.")
+        print("   Use desktop/mobile runtime or switch to a TFLM-friendly architecture for Arduino.")
     else:
         # "Save and Reload" trick to ensure model is clean for TFLite conversion
         print("Reloading Keras model for stable TFLite conversion...")
@@ -1034,24 +1260,36 @@ def save_artifacts(model, scaler, args, trained_model_dir, output_dir, history, 
         with open(tflite_path, 'wb') as f:
             f.write(tflite_model)
         print(f"TFLite model saved: {tflite_path}")
+        if args.arduino:
+            copy_header_to_arduino_dir(args.model_type, header_path, mode_suffix)
         
     # Header file generation completed above
 
-    # Save Params
+    # Save Params (robust to both dict and Keras History)
+    def _get_metric(history_obj, key: str):
+        if history_obj is None:
+            return 0.0
+        # Keras History
+        if hasattr(history_obj, 'history') and isinstance(history_obj.history, dict):
+            seq = history_obj.history.get(key)
+            if isinstance(seq, (list, tuple)) and len(seq) > 0:
+                return float(seq[-1])
+            return 0.0
+        # Dict-like
+        if isinstance(history_obj, dict):
+            seq = history_obj.get(key)
+            if isinstance(seq, (list, tuple)) and len(seq) > 0:
+                return float(seq[-1])
+            if isinstance(seq, (int, float)):
+                return float(seq)
+            return 0.0
+        return 0.0
+
     if is_final:
-        # For the final LOSO model, there is no validation set, only training accuracy.
-        if args.model_type in ['XGBoost', 'LightGBM']:
-            # Non-Keras models have different history format
-            final_accuracy = history['accuracy'][-1] if history and 'accuracy' in history else 0
-        else:
-            final_accuracy = history.history['accuracy'][-1] if history and 'accuracy' in history.history else 0
+        final_accuracy = _get_metric(history, 'accuracy')
     else:
-        # For standard models, we report the validation accuracy.
-        if args.model_type in ['XGBoost', 'LightGBM']:
-            # Non-Keras models have different history format
-            final_accuracy = history['val_accuracy'][-1] if history and 'val_accuracy' in history and len(history['val_accuracy']) > 0 else history['accuracy'][-1] if history and 'accuracy' in history else 0
-        else:
-            final_accuracy = history.history['val_accuracy'][-1] if history and 'val_accuracy' in history.history else 0
+        val_acc = _get_metric(history, 'val_accuracy')
+        final_accuracy = val_acc if val_acc > 0 else _get_metric(history, 'accuracy')
         
     params_path = os.path.join(output_dir, f'params_{full_model_name}.json')
     with open(params_path, 'w') as f:

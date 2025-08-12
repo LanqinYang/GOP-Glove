@@ -21,7 +21,8 @@ class XgboostModelCreator:
             for channel in range(N_FEATURES):
                 data = sample[:, channel]
                 if arduino_mode:
-                    sample_features.extend([np.mean(data), np.std(data), np.min(data), np.max(data)])
+                    # 极简特征以缩小模型（每通道2维：均值、标准差）
+                    sample_features.extend([np.mean(data), np.std(data)])
                 else:
                     sample_features.extend([
                         np.mean(data), np.std(data), np.min(data), np.max(data),
@@ -49,14 +50,17 @@ class XgboostModelCreator:
 
     def define_hyperparams(self, trial, arduino_mode=False):
         if arduino_mode:
+            # 更激进的规模约束以保证导出头文件<256KB
             return {
-                'n_estimators': trial.suggest_int('n_estimators', 10, 50),
-                'max_depth': trial.suggest_int('max_depth', 2, 4),
-                'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
-                'subsample': trial.suggest_float('subsample', 0.7, 1.0),
-                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.7, 1.0),
-                'gamma': trial.suggest_float('gamma', 0, 2),
-                'min_child_weight': trial.suggest_int('min_child_weight', 1, 5)
+                'n_estimators': trial.suggest_int('n_estimators', 10, 20),
+                'max_depth': trial.suggest_int('max_depth', 2, 3),
+                'learning_rate': trial.suggest_float('learning_rate', 0.05, 0.3, log=True),
+                'subsample': trial.suggest_float('subsample', 0.6, 0.9),
+                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.5, 0.8),
+                'gamma': trial.suggest_float('gamma', 0.1, 5.0, log=True),
+                'min_child_weight': trial.suggest_int('min_child_weight', 2, 6),
+                'reg_alpha': trial.suggest_float('reg_alpha', 0.0, 1.0),
+                'reg_lambda': trial.suggest_float('reg_lambda', 0.5, 2.0)
             }
         else:
             params = {

@@ -348,20 +348,35 @@ class AdannLightgbmModelCreator:
             'adann_epochs': trial.suggest_int('adann_epochs', 50, 100),
             'gesture_loss_weight': trial.suggest_float('gesture_loss_weight', 0.5, 2.0),
             'domain_loss_weight': trial.suggest_float('domain_loss_weight', 0.5, 2.0),
-            
-            # LightGBM参数
-            'lgb_num_leaves': trial.suggest_int('lgb_num_leaves', 10, 100),
-            'lgb_learning_rate': trial.suggest_float('lgb_learning_rate', 0.01, 0.3),
-            'lgb_feature_fraction': trial.suggest_float('lgb_feature_fraction', 0.4, 1.0),
-            'lgb_bagging_fraction': trial.suggest_float('lgb_bagging_fraction', 0.4, 1.0),
-            'lgb_min_child_samples': trial.suggest_int('lgb_min_child_samples', 5, 100),
-            'lgb_n_estimators': trial.suggest_int('lgb_n_estimators', 50, 500),
-            
-            # 集成参数
-            'ensemble_adann_weight': trial.suggest_float('ensemble_adann_weight', 0.3, 0.7),
-            'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64])
         }
-        
+
+        if arduino_mode:
+            # Arduino模式：强约束LGB分支复杂度，控制 .h 大小与闪存占用
+            params.update({
+                'lgb_num_leaves': trial.suggest_categorical('lgb_num_leaves', [31]),
+                'lgb_learning_rate': trial.suggest_categorical('lgb_learning_rate', [0.10]),
+                'lgb_feature_fraction': trial.suggest_categorical('lgb_feature_fraction', [0.80]),
+                'lgb_bagging_fraction': trial.suggest_categorical('lgb_bagging_fraction', [0.80]),
+                'lgb_min_child_samples': trial.suggest_categorical('lgb_min_child_samples', [20]),
+                'lgb_n_estimators': trial.suggest_categorical('lgb_n_estimators', [40]),
+                'lgb_max_depth': trial.suggest_categorical('lgb_max_depth', [8]),
+                'ensemble_adann_weight': trial.suggest_categorical('ensemble_adann_weight', [0.5]),
+                'batch_size': trial.suggest_categorical('batch_size', [32])
+            })
+        else:
+            # LightGBM参数（完整搜索空间）
+            params.update({
+                'lgb_num_leaves': trial.suggest_int('lgb_num_leaves', 10, 100),
+                'lgb_learning_rate': trial.suggest_float('lgb_learning_rate', 0.01, 0.3),
+                'lgb_feature_fraction': trial.suggest_float('lgb_feature_fraction', 0.4, 1.0),
+                'lgb_bagging_fraction': trial.suggest_float('lgb_bagging_fraction', 0.4, 1.0),
+                'lgb_min_child_samples': trial.suggest_int('lgb_min_child_samples', 5, 100),
+                'lgb_n_estimators': trial.suggest_int('lgb_n_estimators', 50, 500),
+                'lgb_max_depth': trial.suggest_int('lgb_max_depth', 3, 15),
+                'ensemble_adann_weight': trial.suggest_float('ensemble_adann_weight', 0.3, 0.7),
+                'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64])
+            })
+
         # 添加数据增强参数 (非Arduino模式)
         if not arduino_mode:
             params.update({
@@ -394,7 +409,7 @@ class AdannLightgbmModelCreator:
             n_subjects=6
         ).to(self.device)
         
-        # 创建LightGBM模型
+        # 创建LightGBM模型（使用受限复杂度参数）
         lgb_model = lgb.LGBMClassifier(
             objective='multiclass',
             num_class=N_CLASSES,
@@ -404,6 +419,7 @@ class AdannLightgbmModelCreator:
             bagging_fraction=params.get('lgb_bagging_fraction', 0.8),
             min_child_samples=params.get('lgb_min_child_samples', 20),
             n_estimators=params.get('lgb_n_estimators', 100),
+            max_depth=params.get('lgb_max_depth', -1),
             random_state=42,
             verbose=-1
         )

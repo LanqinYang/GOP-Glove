@@ -59,14 +59,7 @@ float result = tfModel.output(i);
 - **适用场景**: 简单手势识别，低延迟要求
 - **特点**: 轻量级一维卷积，适合实时应用
 
-### 2. CNN_LSTM模型 ⚖️
-- **文件**: `CNN_LSTM_inference/`
-- **内存占用**: ~40KB
-- **推理速度**: 中等（~20-35ms）
-- **适用场景**: 复杂时序手势，高准确率要求
-- **特点**: 结合CNN特征提取和LSTM时序建模
-
-### 3. Transformer_Encoder模型 🎯
+### 2. Transformer_Encoder模型 🎯
 - **文件**: `Transformer_Encoder_inference/`
 - **内存占用**: ~48KB
 - **推理速度**: 最慢（~40-60ms）
@@ -87,9 +80,6 @@ arduino/tinyml_inference/
 ├── 1D_CNN_inference/              # 轻量级CNN模型
 │   ├── 1D_CNN_inference.ino       # 主程序
 │   └── bsl_model_1D_CNN.h         # 模型权重
-├── CNN_LSTM_inference/             # CNN+LSTM混合模型
-│   ├── CNN_LSTM_inference.ino
-│   └── bsl_model_CNN_LSTM.h
 ├── Transformer_Encoder_inference/  # Transformer模型
 │   ├── Transformer_Encoder_inference.ino
 │   └── bsl_model_Transformer_Encoder.h
@@ -169,7 +159,6 @@ Arduino Nano 33 BLE Sense Rev2:
 | 模型 | 内存占用 | 推理时间 | 准确率 | 适用场景 |
 |------|----------|----------|--------|----------|
 | 1D_CNN | 28KB | 8-15ms | 85-90% | 实时应用 |
-| CNN_LSTM | 40KB | 20-35ms | 90-95% | 平衡性能 |
 | Transformer | 48KB | 40-60ms | 95-98% | 最高精度 |
 | XGBoost | 可变 | 2-5ms | 80-85% | 超低延迟 |
 
@@ -194,12 +183,6 @@ const float EMA_ALPHA = 0.1;         // EMA滤波系数
 - ✅ 最小的内存占用
 - ✅ 简单的手势识别
 - ✅ 实时响应
-
-### 选择CNN_LSTM如果你需要：
-- ✅ 平衡的性能和精度
-- ✅ 复杂的时序模式识别
-- ✅ 中等的资源消耗
-- ✅ 较好的泛化能力
 
 ### 选择Transformer如果你需要：
 - ✅ 最高的识别精度
