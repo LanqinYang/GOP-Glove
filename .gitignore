@@ -96,3 +96,9 @@ models/trained/
 arduino/tinyml_inference/**
 !arduino/tinyml_inference/**/*.ino
 !arduino/tinyml_inference/README.md 
+
+# Keep a specific Colab notebook tracked (override global *.ipynb ignore)
+!src/test/latency_benchmark_test/Latency_Test_Latest.ipynb
+# Do not track generated figures in the test folder
+src/test/latency_benchmark_test/*.pdf
+src/test/latency_benchmark_test/*.png 
