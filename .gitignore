@@ -37,7 +37,7 @@ ENV/
 
 # Jupyter Notebook
 .ipynb_checkpoints/
-*.ipynb
+
 
 # Data files
 *.csv
@@ -100,8 +100,10 @@ arduino/tinyml_inference/**
 # Also ignore any .txt artifacts under Arduino inference
 arduino/tinyml_inference/**/*.txt
 
-# Keep a specific Colab notebook tracked (override global *.ipynb ignore)
-!src/test/latency_benchmark_test/Latency_Test_Latest.ipynb
-# Do not track generated figures in the test folder
+# Track Jupyter notebooks (*.ipynb) - no ignore rule needed; checkpoints are already ignored
+
+# Do not track latency benchmark artifacts
+src/test/latency_benchmark_test/A100/**
+src/test/latency_benchmark_test/CPU/**
 src/test/latency_benchmark_test/*.pdf
-src/test/latency_benchmark_test/*.png 
+src/test/latency_benchmark_test/*.png
