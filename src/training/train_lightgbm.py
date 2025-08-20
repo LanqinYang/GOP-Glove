@@ -22,6 +22,8 @@ import optuna
 SEQUENCE_LENGTH = 100
 N_FEATURES = 5
 N_CLASSES = 11
+# Sampling rate used for frequency features should match data collection
+FS_HZ = 50.0  # Hz, aligned with configs and pipeline (100 samples ≈ 2s at 50Hz)
 
 class LightgbmModelWrapper:
     """LightGBM模型包装器，兼容Keras风格的pipeline"""
@@ -204,15 +206,18 @@ class EnhancedFeatureExtractor:
             
             # 2. 频域特征 (6个) - 修复NaN问题
             try:
-                freqs, psd = signal.periodogram(channel_data, fs=250)  # 假设250Hz采样率
+                # Use correct sampling rate for PSD estimation
+                freqs, psd = signal.periodogram(channel_data, fs=FS_HZ)
                 total_power = np.sum(psd)
                 
                 if total_power > 1e-10:  # 避免除零
                     dominant_freq = freqs[np.argmax(psd)]
                     spectral_centroid = np.sum(freqs * psd) / total_power
                     spectral_spread = np.sqrt(np.sum(((freqs - spectral_centroid) ** 2) * psd) / total_power)
-                    low_freq_ratio = np.sum(psd[freqs <= 50]) / total_power
-                    high_freq_ratio = np.sum(psd[freqs >= 50]) / total_power
+                    # Split spectrum at quarter of sampling rate to avoid Nyquist issues on 50Hz data
+                    cutoff = FS_HZ / 4.0
+                    low_freq_ratio = np.sum(psd[freqs <= cutoff]) / total_power
+                    high_freq_ratio = np.sum(psd[freqs > cutoff]) / total_power
                 else:
                     dominant_freq = 0
                     spectral_centroid = 0

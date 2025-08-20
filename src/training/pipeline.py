@@ -140,7 +140,9 @@ def augment_data(X_train, y_train, augment_params=None):
     """
     if augment_params is None:
         try:
-            with open('configs/config.yaml', 'r') as f:
+            # Prefer temporary config written by ablation scripts if present
+            config_path = 'configs/temp_config.yaml' if os.path.exists('configs/temp_config.yaml') else 'configs/config.yaml'
+            with open(config_path, 'r') as f:
                 full_config = yaml.safe_load(f)
                 config = full_config['data']['augmentation']
         except (FileNotFoundError, KeyError) as e:
@@ -760,6 +762,84 @@ def objective_lightgbm(trial, args, model_creator, X_train, y_train, X_val, y_va
         traceback.print_exc()
         return 0.0
 
+# --- Optuna Artifacts Saving ---
+
+def _save_optuna_artifacts(study, args, output_dir, fold_id=None):
+    """Save Optuna study results to JSON and CSV files for analysis."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Helper to convert NumPy types to native Python types for JSON serialization
+    def _to_basic_type(obj):
+        import numpy as np  # local import to avoid top-level dependency issues
+        if isinstance(obj, (np.integer,)):
+            return int(obj)
+        if isinstance(obj, (np.floating,)):
+            return float(obj)
+        if isinstance(obj, (np.ndarray,)):
+            return obj.tolist()
+        return obj
+    
+    # Determine file suffix based on mode and fold
+    if fold_id is not None:
+        suffix = f"_fold_{fold_id}"
+    else:
+        suffix = ""
+    
+    training_mode = "loso" if args.loso else "standard" 
+    optimization_mode = "arduino" if args.arduino else "full"
+    
+    # Save best parameters
+    best_params_file = f"best_params_{args.model_type}_{training_mode}_{optimization_mode}{suffix}_{timestamp}.json"
+    best_params_path = os.path.join(output_dir, best_params_file)
+    
+    # Safely convert best params (may contain NumPy types)
+    safe_best_params = {k: _to_basic_type(v) for k, v in study.best_params.items()}
+    best_params_data = {
+        'model_type': args.model_type,
+        'training_mode': training_mode,
+        'optimization_mode': optimization_mode,
+        'fold_id': _to_basic_type(fold_id) if fold_id is not None else None,
+        'timestamp': timestamp,
+        'best_trial_number': _to_basic_type(study.best_trial.number),
+        'best_value': _to_basic_type(study.best_value),
+        'best_params': safe_best_params,
+        'n_trials': _to_basic_type(len(study.trials)),
+        'study_direction': study.direction.name
+    }
+    
+    with open(best_params_path, 'w') as f:
+        json.dump(best_params_data, f, indent=2)
+    print(f"Best parameters saved: {best_params_path}")
+    
+    # Save trials data
+    trials_file = f"trials_{args.model_type}_{training_mode}_{optimization_mode}{suffix}_{timestamp}.csv"
+    trials_path = os.path.join(output_dir, trials_file)
+    
+    # Convert trials to DataFrame-compatible format
+    trials_data = []
+    for trial in study.trials:
+        trial_dict = {
+            'trial_number': trial.number,
+            'value': trial.value,
+            'state': trial.state.name,
+            'datetime_start': trial.datetime_start.isoformat() if trial.datetime_start else None,
+            'datetime_complete': trial.datetime_complete.isoformat() if trial.datetime_complete else None,
+            'duration_seconds': (trial.datetime_complete - trial.datetime_start).total_seconds() 
+                               if trial.datetime_complete and trial.datetime_start else None
+        }
+        # Add all parameters as separate columns
+        for param_name, param_value in trial.params.items():
+            trial_dict[f'param_{param_name}'] = param_value
+        trials_data.append(trial_dict)
+    
+    # Save as CSV
+    import pandas as pd
+    trials_df = pd.DataFrame(trials_data)
+    trials_df.to_csv(trials_path, index=False)
+    print(f"Trials data saved: {trials_path}")
+    
+    return best_params_path, trials_path
+
 # --- Main Pipeline ---
 
 def run_training_pipeline(args, model_creator):
@@ -777,6 +857,17 @@ def run_training_pipeline(args, model_creator):
     
     output_dir = os.path.join('outputs', args.model_type, training_mode, optimization_mode)
     trained_model_dir = os.path.join(args.output_dir, args.model_type, training_mode, optimization_mode)
+
+    # Append optional output suffix for ablation runs to avoid collision and simplify aggregation
+    try:
+        suffix_raw = getattr(args, 'output_suffix', '') or ''
+    except Exception:
+        suffix_raw = ''
+    if isinstance(suffix_raw, str) and suffix_raw.strip():
+        # Sanitize to filesystem-friendly form: replace spaces and non-alnum/[_-] with '_'
+        safe_suffix = re.sub(r'[^A-Za-z0-9_\-]+', '_', suffix_raw.strip())
+        output_dir = os.path.join(output_dir, safe_suffix)
+        trained_model_dir = os.path.join(trained_model_dir, safe_suffix)
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(trained_model_dir, exist_ok=True)
 
@@ -829,6 +920,9 @@ def run_standard_pipeline(args, model_creator, X, y, output_dir, trained_model_d
             sampler=optuna.samplers.TPESampler(seed=SEED)
         )
     study.optimize(lambda trial: objective_func(trial, args, model_creator, *obj_args), n_trials=args.n_trials)
+    
+    # Save Optuna optimization artifacts
+    _save_optuna_artifacts(study, args, output_dir)
     
     # Train final model
     best_params = study.best_params
@@ -901,6 +995,8 @@ def run_loso_pipeline(args, model_creator, X, y, subjects, output_dir, trained_m
             sampler=optuna.samplers.TPESampler(seed=SEED)
         )
             study.optimize(lambda trial: objective_func(trial, args, model_creator, X_train_feat, y_train, X_val_feat, y_val), n_trials=args.n_trials)
+            # Save Optuna artifacts for each fold
+            _save_optuna_artifacts(study, args, output_dir, fold_id=subject_id)
         elif args.model_type == 'LightGBM':
             # LightGBM: Apply augmentation first, then extract features (similar to XGBoost)
             X_train_full, y_train_full = augment_data(X_train_full, y_train_full)
@@ -913,6 +1009,8 @@ def run_loso_pipeline(args, model_creator, X, y, subjects, output_dir, trained_m
             sampler=optuna.samplers.TPESampler(seed=SEED)
         )
             study.optimize(lambda trial: objective_func(trial, args, model_creator, X_train_feat, y_train, X_val_feat, y_val), n_trials=args.n_trials)
+            # Save Optuna artifacts for each fold
+            _save_optuna_artifacts(study, args, output_dir, fold_id=subject_id)
         else:
             # TensorFlow models: Pass raw data for full optimization
             X_train_orig, X_val_orig, y_train, y_val = train_test_split(X_train_full, y_train_full, test_size=VAL_SIZE, random_state=SEED, stratify=y_train_full)
@@ -922,6 +1020,8 @@ def run_loso_pipeline(args, model_creator, X, y, subjects, output_dir, trained_m
             sampler=optuna.samplers.TPESampler(seed=SEED)
         )
             study.optimize(lambda trial: objective_func(trial, args, model_creator, X_train_orig, y_train, X_val_orig, y_val), n_trials=args.n_trials)
+            # Save Optuna artifacts for each fold
+            _save_optuna_artifacts(study, args, output_dir, fold_id=subject_id)
             
             # After optimization, prepare test data with best parameters
             best_params = study.best_params
@@ -1039,8 +1139,22 @@ def run_loso_pipeline(args, model_creator, X, y, subjects, output_dir, trained_m
         history = final_model.fit(X_all_feat, y, verbose=1)
     else:
         print(f"Training final Keras model for {epochs} epochs...")
-        # No callbacks like EarlyStopping, as there's no validation set. Train for the full duration.
-        history = final_model.fit(X_all_feat, y, epochs=epochs, verbose=1)
+        # Apply pruning in Arduino mode for final deployment model as well
+        final_model, strip_fn, pruning_callbacks = apply_pruning_if_needed(
+            final_model,
+            args.arduino,
+            X_train_len=X_all_feat.shape[0],
+            batch_size=best_params_overall.get('batch_size', 32),
+            epochs=epochs
+        )
+        callbacks = [EarlyStopping(patience=10, restore_best_weights=True)] + pruning_callbacks
+        history = final_model.fit(X_all_feat, y, epochs=epochs, callbacks=callbacks, verbose=1)
+        # Strip pruning wrappers before saving/exporting
+        if strip_fn is not None:
+            try:
+                final_model = strip_fn(final_model)
+            except Exception:
+                pass
     
     # 4. Save the final, deployable artifacts
     save_artifacts(final_model, scaler_final, args, trained_model_dir, output_dir, history, X_all_feat, is_final=True)
@@ -1227,28 +1341,79 @@ def save_artifacts(model, scaler, args, trained_model_dir, output_dir, history, 
                 if adann_estimator is not None and adann_scaler is not None:
                     adann_header = generate_adann_c_header_inline(adann_estimator, adann_scaler, timestamp, trained_model_dir)
                     print(f"Hybrid ADANN Arduino header saved: {adann_header}")
-                    if args.arduino:
-                        # Also copy ADANN header into the ADANN_LightGBM Arduino dir for combined inference
-                        try:
-                            mapping_dir = os.path.join('arduino', 'tinyml_inference', 'ADANN_LightGBM_inference')
-                            os.makedirs(mapping_dir, exist_ok=True)
-                            target_name = 'bsl_model_ADANN.h'
-                            target_path = os.path.join(mapping_dir, target_name)
-                            shutil.copyfile(adann_header, target_path)
-                            # copy to latency dirs
-                            for mode_dir in ['Latency_standard', 'Latency_loso']:
-                                os.makedirs(os.path.join(mapping_dir, mode_dir), exist_ok=True)
-                                shutil.copyfile(adann_header, os.path.join(mapping_dir, mode_dir, target_name))
-                            print(f"ADANN header copied to ADANN_LightGBM Arduino dirs: {mapping_dir}")
-                        except Exception as e:
-                            print(f"⚠️ Failed to copy ADANN header into ADANN_LightGBM dir: {e}")
+                    # Also copy ADANN header into the ADANN_LightGBM Arduino dir for combined inference
+                    try:
+                        mapping_dir = os.path.join('arduino', 'tinyml_inference', 'ADANN_LightGBM_inference')
+                        os.makedirs(mapping_dir, exist_ok=True)
+                        target_name = 'bsl_model_ADANN.h'
+                        target_path = os.path.join(mapping_dir, target_name)
+                        shutil.copyfile(adann_header, target_path)
+                        # copy to latency dirs
+                        for mode_dir in ['Latency_standard', 'Latency_loso']:
+                            os.makedirs(os.path.join(mapping_dir, mode_dir), exist_ok=True)
+                            shutil.copyfile(adann_header, os.path.join(mapping_dir, mode_dir, target_name))
+                        print(f"ADANN header copied to ADANN_LightGBM Arduino dirs: {mapping_dir}")
+                    except Exception as e:
+                        print(f"⚠️ Failed to copy ADANN header into ADANN_LightGBM dir: {e}")
                 else:
                     print("⚠️ Hybrid ADANN header skipped: missing adann estimator or scaler in hybrid model")
             except Exception as e:
                 print(f"⚠️ Failed to generate hybrid LightGBM/ADANN Arduino headers: {e}")
     elif args.model_type == 'Transformer_Encoder' and args.arduino:
-        print("❌ Arduino export skipped: Transformer_Encoder requires BATCH_MATMUL which is not available in current TFLite Micro build.")
-        print("   Use desktop/mobile runtime or switch to a TFLM-friendly architecture for Arduino.")
+        # Still export header like CNN flow, but use non-Arduino TFLite conversion (SELECT_TF_OPS)
+        # so that a .h is produced for testing, even though it won't compile on TFLite Micro.
+        print("⚠️ Transformer_Encoder on Arduino: falling back to SELECT_TF_OPS TFLite conversion to generate header for testing.")
+        print("   The generated header will not be runnable on TFLite Micro, but preserves the export/testing flow.")
+        print("Reloading Keras model for TFLite conversion (attempt INT8 + SELECT_TF_OPS)...")
+        model = tf.keras.models.load_model(model_path)
+
+        # Build converter manually to allow mixed INT8 + SELECT_TF_OPS
+        @tf.function
+        def _model_func(x):
+            return model(x)
+        input_shape = [1] + list(model.input_shape[1:])
+        concrete_func = _model_func.get_concrete_function(
+            tf.TensorSpec(shape=input_shape, dtype=tf.float32)
+        )
+        converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
+        converter._experimental_lower_tensor_list_ops = False
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+
+        def representative_dataset():
+            for i in range(min(100, len(X_train_data))):
+                yield [X_train_data[i:i+1].astype(np.float32)]
+        converter.representative_dataset = representative_dataset
+
+        # Try full INT8 with SELECT_TF_OPS allowed (may still fail for some graphs)
+        try:
+            converter.target_spec.supported_ops = [
+                tf.lite.OpsSet.TFLITE_BUILTINS_INT8,
+                tf.lite.OpsSet.SELECT_TF_OPS
+            ]
+            converter.inference_input_type = tf.int8
+            converter.inference_output_type = tf.int8
+            tflite_model = converter.convert()
+            print("TFLite conversion succeeded with INT8 + SELECT_TF_OPS.")
+        except Exception as e:
+            print(f"⚠️ INT8 conversion failed ({e}); falling back to SELECT_TF_OPS with default dtypes.")
+            converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
+            converter._experimental_lower_tensor_list_ops = False
+            converter.optimizations = [tf.lite.Optimize.DEFAULT]
+            converter.representative_dataset = representative_dataset
+            converter.target_spec.supported_ops = [
+                tf.lite.OpsSet.TFLITE_BUILTINS,
+                tf.lite.OpsSet.SELECT_TF_OPS
+            ]
+            # Do not force int8 I/O types; let converter keep flex/float for unsupported parts
+            tflite_model = converter.convert()
+            print("TFLite conversion succeeded with SELECT_TF_OPS (mixed precision).")
+        header_path = generate_arduino_header_tflite(tflite_model, scaler, args.model_type, timestamp, trained_model_dir)
+        tflite_path = os.path.join(trained_model_dir, f"{full_model_name}.tflite")
+        with open(tflite_path, 'wb') as f:
+            f.write(tflite_model)
+        print(f"TFLite model saved (SELECT_TF_OPS): {tflite_path}")
+        if args.arduino:
+            copy_header_to_arduino_dir(args.model_type, header_path, mode_suffix)
     else:
         # "Save and Reload" trick to ensure model is clean for TFLite conversion
         print("Reloading Keras model for stable TFLite conversion...")

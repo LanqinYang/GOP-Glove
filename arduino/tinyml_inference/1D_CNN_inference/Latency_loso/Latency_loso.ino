@@ -54,6 +54,43 @@ static inline void standardize_inplace(float buf[SEQUENCE_LENGTH][NUM_SENSORS]) 
   }
 }
 
+// Memory report (RAM composition; for quick on-board estimation)
+static void cmd_mem() {
+  const int BYTES_PER_FLOAT = (int)sizeof(float);
+  const int window_bytes = SEQUENCE_LENGTH * NUM_SENSORS * BYTES_PER_FLOAT;  // window_fixed
+  const int ema_buf_bytes = SEQUENCE_LENGTH * NUM_SENSORS * BYTES_PER_FLOAT; // ema_buf in prepack_input
+  const int t_infer_bytes = 1024 * (int)sizeof(uint32_t);                     // t_infer in run_latency
+  const int arena_bytes = (int)sizeof(tensor_arena);
+
+  int input_bytes = input ? input->bytes : 0;
+  size_t arena_used = 0;
+#if defined(ARDUINO)
+  if (interpreter) {
+#if defined(ARDUINO_ARCH_MBED)
+    // MicroInterpreter provides arena_used_bytes() in most TFLM builds
+    // Guarded to avoid compile issues on older cores
+    arena_used = interpreter->arena_used_bytes();
+#endif
+  }
+#endif
+
+  const unsigned long estimated_peak = (unsigned long)arena_bytes
+    + (unsigned long)window_bytes
+    + (unsigned long)ema_buf_bytes
+    + (unsigned long)t_infer_bytes;
+
+  Serial.print("{\"tensor_arena_bytes\":"); Serial.print(arena_bytes);
+  Serial.print(",\"arena_used_bytes\":"); Serial.print((unsigned long)arena_used);
+  Serial.print(",\"flash_model_raw_bytes\":"); Serial.print((unsigned long)model_data_len);
+  Serial.print(",\"buffers_bytes\":{\"window_fixed\":"); Serial.print(window_bytes);
+  Serial.print(",\"ema_buf\":"); Serial.print(ema_buf_bytes);
+  Serial.print(",\"t_infer\":"); Serial.print(t_infer_bytes);
+  Serial.print(",\"input_tensor_bytes\":"); Serial.print(input_bytes);
+  Serial.print("}");
+  Serial.print(",\"estimated_ram_peak_bytes\":"); Serial.print(estimated_peak);
+  Serial.println("}");
+}
+
 // Stats
 struct Stats { uint32_t min_v, max_v; double avg_v; };
 static void compute_stats(uint32_t* arr, int n, struct Stats* s) {
@@ -68,6 +105,7 @@ static void cmd_help() {
   Serial.println("Commands:");
   Serial.println("  record                - capture one 100x5 window and prepack INT8 input");
   Serial.println("  latency [R W]         - inference-only latency (default 200 10)");
+  Serial.println("  mem                   - print RAM composition/estimate (JSON)");
 }
 
 static void capture_window(float dst[SEQUENCE_LENGTH][NUM_SENSORS]) {
@@ -138,6 +176,8 @@ void loop() {
       int runs = RUNS_DEFAULT, warm = WARMUP_DEFAULT; int sp = line.indexOf(' ');
       if (sp > 0) { int sp2 = line.indexOf(' ', sp + 1); if (sp2 > 0) { runs = line.substring(sp + 1, sp2).toInt(); warm = line.substring(sp2 + 1).toInt(); } else { runs = line.substring(sp + 1).toInt(); } }
       run_latency(runs, warm);
+    } else if (line.equalsIgnoreCase("mem")) {
+      cmd_mem();
     }
   }
 }

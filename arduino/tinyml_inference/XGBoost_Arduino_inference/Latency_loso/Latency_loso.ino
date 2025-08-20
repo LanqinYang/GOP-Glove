@@ -42,6 +42,7 @@ static void cmd_help() {
   Serial.println("Commands:");
   Serial.println("  record              - capture one 100x5 window as fixed input and precompute features");
   Serial.println("  latency             - run latency on fixed features (default 200 runs, warmup 10)");
+  Serial.println("  mem                 - print RAM composition/estimate (JSON)");
 }
 
 static void capture_window(float dst[SEQUENCE_LENGTH][NUM_SENSORS]) {
@@ -75,6 +76,28 @@ static void precompute_features() {
     features_fixed[base + 3] = maxv;
   }
   has_features = true;
+}
+
+// Memory report (RAM composition for XGBoost)
+static void cmd_mem() {
+  const int BYTES_PER_FLOAT = (int)sizeof(float);
+  const int window_bytes = SEQUENCE_LENGTH * NUM_SENSORS * BYTES_PER_FLOAT;   // window_fixed
+  const int features_bytes = (NUM_SENSORS * 4) * BYTES_PER_FLOAT;             // features_fixed
+  const int ema_buf_bytes = SEQUENCE_LENGTH * NUM_SENSORS * BYTES_PER_FLOAT;  // ema_buf inside precompute_features
+  const int t_pred_bytes = 1024 * (int)sizeof(uint32_t);                      // t_pred in run_latency
+
+  const unsigned long estimated_peak = (unsigned long)window_bytes
+    + (unsigned long)features_bytes
+    + (unsigned long)ema_buf_bytes
+    + (unsigned long)t_pred_bytes;
+
+  Serial.print("{\"buffers_bytes\":{\"window_fixed\":"); Serial.print(window_bytes);
+  Serial.print(",\"features_fixed\":"); Serial.print(features_bytes);
+  Serial.print(",\"ema_buf\":"); Serial.print(ema_buf_bytes);
+  Serial.print(",\"t_pred\":"); Serial.print(t_pred_bytes);
+  Serial.print("}");
+  Serial.print(",\"estimated_ram_peak_bytes\":"); Serial.print(estimated_peak);
+  Serial.println("}");
 }
 
 static void run_latency(int runs, int warmup) {
@@ -117,6 +140,7 @@ void loop() {
       int runs = RUNS_DEFAULT, warm = WARMUP_DEFAULT; int sp = line.indexOf(' ');
       if (sp > 0) { int sp2 = line.indexOf(' ', sp + 1); if (sp2 > 0) { runs = line.substring(sp + 1, sp2).toInt(); warm = line.substring(sp2 + 1).toInt(); } else { runs = line.substring(sp + 1).toInt(); } }
       run_latency(runs, warm);
-    } else { Serial.println("Unknown command. Type 'help'."); }
+    } else if (line.equalsIgnoreCase("mem")) { cmd_mem(); }
+    else { Serial.println("Unknown command. Type 'help'."); }
   }
 }

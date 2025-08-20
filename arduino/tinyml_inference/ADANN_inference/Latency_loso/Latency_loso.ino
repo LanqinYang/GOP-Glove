@@ -18,6 +18,19 @@ static inline int infer_once() {
   return adann_predict(x);
 }
 
+// Memory report (RAM composition for ADANN)
+static void cmd_mem() {
+  const int BYTES_PER_FLOAT = (int)sizeof(float);
+  const int t_infer_bytes = 1024 * (int)sizeof(uint32_t);  // t_infer in run_latency
+  const int stack_x_bytes = ADANN_INPUT_SIZE * BYTES_PER_FLOAT; // x[ADANN_INPUT_SIZE] local buffer
+  const unsigned long estimated_peak = (unsigned long)t_infer_bytes + (unsigned long)stack_x_bytes;
+  Serial.print("{\"buffers_bytes\":{\"t_infer\":"); Serial.print(t_infer_bytes);
+  Serial.print(",\"stack_x\":"); Serial.print(stack_x_bytes);
+  Serial.print("}");
+  Serial.print(",\"estimated_ram_peak_bytes\":"); Serial.print(estimated_peak);
+  Serial.println("}");
+}
+
 static void run_latency(int measure_runs, int warmup_runs) {
   measure_runs = constrain(measure_runs, 1, 1024);
   warmup_runs = constrain(warmup_runs, 0, 1024);
@@ -38,6 +51,7 @@ static void run_latency(int measure_runs, int warmup_runs) {
 static void cmd_help() {
   Serial.println("Commands:");
   Serial.println("  latency [R W]         - W warmups then R measured runs (default 200 10)");
+  Serial.println("  mem                   - print RAM composition/estimate (JSON)");
 }
 
 void setup() {
@@ -57,7 +71,8 @@ void loop() {
         else { runs = line.substring(sp + 1).toInt(); }
       }
       run_latency(runs, warm);
-    } else { Serial.println("Unknown command. Type 'help'."); }
+    } else if (line.equalsIgnoreCase("mem")) { cmd_mem(); }
+    else { Serial.println("Unknown command. Type 'help'."); }
   }
 }
 

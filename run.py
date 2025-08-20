@@ -58,6 +58,7 @@ def main():
     parser.add_argument('--arduino', action='store_true', 
                              help='Use Arduino optimization mode (smaller model, potentially lower accuracy)')
     parser.add_argument('--loso', action='store_true', help='Use Leave-One-Subject-Out (LOSO) cross-validation')
+    parser.add_argument('--output_suffix', type=str, default='', help='Optional suffix to append to output paths for this run')
     
     args = parser.parse_args()
     

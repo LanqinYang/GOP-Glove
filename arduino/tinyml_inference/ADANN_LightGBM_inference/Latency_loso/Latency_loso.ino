@@ -25,6 +25,22 @@ static inline int infer_once() {
   return (pred_adann == pred_lgb) ? pred_lgb : pred_adann;
 }
 
+// Memory report (RAM composition for DA-LGBM fusion)
+static void cmd_mem() {
+  const int BYTES_PER_FLOAT = (int)sizeof(float);
+  const int t_infer_bytes = 1024 * (int)sizeof(uint32_t);     // t_infer in run_latency
+  const int stack_lgb_bytes = BSL_MODEL_FEATURES * BYTES_PER_FLOAT; // lgb_features
+  const int stack_adann_bytes = ADANN_INPUT_SIZE * BYTES_PER_FLOAT; // adann_x
+  const unsigned long estimated_peak = (unsigned long)t_infer_bytes
+    + (unsigned long)stack_lgb_bytes + (unsigned long)stack_adann_bytes;
+  Serial.print("{\"buffers_bytes\":{\"t_infer\":"); Serial.print(t_infer_bytes);
+  Serial.print(",\"stack_lgb_features\":"); Serial.print(stack_lgb_bytes);
+  Serial.print(",\"stack_adann_x\":"); Serial.print(stack_adann_bytes);
+  Serial.print("}");
+  Serial.print(",\"estimated_ram_peak_bytes\":"); Serial.print(estimated_peak);
+  Serial.println("}");
+}
+
 static void run_latency(int measure_runs, int warmup_runs) {
   measure_runs = constrain(measure_runs, 1, 1024);
   warmup_runs = constrain(warmup_runs, 0, 1024);
@@ -49,7 +65,7 @@ static void run_latency(int measure_runs, int warmup_runs) {
 
 void setup() {
   Serial.begin(115200); while(!Serial){}
-  Serial.println("ADANN_LightGBM LOSO fusion latency tester ready. Type 'latency'.");
+  Serial.println("ADANN_LightGBM LOSO fusion latency tester ready. Type 'latency' or 'mem'.");
 }
 
 void loop() {
@@ -63,8 +79,10 @@ void loop() {
         else { runs = line.substring(sp + 1).toInt(); }
       }
       run_latency(runs, warm);
+    } else if (line.equalsIgnoreCase("mem")) {
+      cmd_mem();
     } else {
-      Serial.println("Type: latency [runs warmup]");
+      Serial.println("Type: latency [runs warmup]  |  mem");
     }
   }
 }
