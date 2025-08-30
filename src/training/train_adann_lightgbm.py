@@ -25,7 +25,8 @@ warnings.filterwarnings('ignore')
 import os
 
 # 导入ADANN组件
-from .train_adann import AdversarialFeatureExtractor, EnhancedFeatureExtractor, GradientReversalLayer
+from .train_adann import AdversarialFeatureExtractor, GradientReversalLayer
+from .train_adann import EnhancedFeatureExtractor as AdannEnhancedExtractor
 
 
 class AdannLightgbmModelWrapper:
@@ -216,107 +217,23 @@ class AdannLightgbmModelWrapper:
             print(f"⚠️ File not found: {torch_filepath}")
 
 class HybridFeatureExtractor:
-    """混合特征提取器 - 结合ADANN和传统特征"""
+    """混合特征提取器 - ADANN和LightGBM都使用相同的190维手工特征"""
     
     def __init__(self):
-        self.enhanced_extractor = EnhancedFeatureExtractor()
+        self.enhanced_extractor = AdannEnhancedExtractor()  # 综合特征提取器
         self.scaler = StandardScaler()
         
     def extract_lightgbm_features(self, sample):
-        """提取LightGBM专用特征"""
-        features = []
-        
-        # 对每个通道提取特征
-        for ch in range(sample.shape[1]):
-            channel_data = sample[:, ch]
-            
-            # 1. 扩展时域特征 (18个)
-            mean_val = float(np.mean(channel_data)) if len(channel_data) > 0 else 0.0
-            std_val = float(np.std(channel_data)) if len(channel_data) > 0 else 0.0
-            var_val = float(np.var(channel_data)) if len(channel_data) > 0 else 0.0
-            min_val = float(np.min(channel_data)) if len(channel_data) > 0 else 0.0
-            max_val = float(np.max(channel_data)) if len(channel_data) > 0 else 0.0
-            ptp_val = float(np.ptp(channel_data)) if len(channel_data) > 0 else 0.0
-            median_val = float(np.median(channel_data)) if len(channel_data) > 0 else 0.0
-
-            try:
-                ch_skew = skew(channel_data) if len(channel_data) > 2 else 0.0
-                ch_skew = 0.0 if (np.isnan(ch_skew) or np.isinf(ch_skew)) else float(ch_skew)
-            except Exception:
-                ch_skew = 0.0
-
-            try:
-                ch_kurt = kurtosis(channel_data) if len(channel_data) > 2 else 0.0
-                ch_kurt = 0.0 if (np.isnan(ch_kurt) or np.isinf(ch_kurt)) else float(ch_kurt)
-            except Exception:
-                ch_kurt = 0.0
-
-            wl_val = float(np.sum(np.abs(np.diff(channel_data)))) if len(channel_data) > 1 else 0.0
-            zc_val = int(np.sum(np.diff(np.sign(channel_data)) != 0)) if len(channel_data) > 1 else 0
-            ssc_val = int(np.sum(np.diff(np.sign(np.diff(channel_data))) != 0)) if len(channel_data) > 2 else 0
-            rms_val = float(np.sqrt(np.mean(channel_data**2))) if len(channel_data) > 0 else 0.0
-            mav_val = float(np.mean(np.abs(channel_data))) if len(channel_data) > 0 else 0.0
-            q1_val = float(np.percentile(channel_data, 25)) if len(channel_data) > 0 else 0.0
-            q3_val = float(np.percentile(channel_data, 75)) if len(channel_data) > 0 else 0.0
-            aav_val = float(np.mean(np.abs(channel_data - mean_val))) if len(channel_data) > 0 else 0.0
-            # 异常值计数（保护std为0的情况）
-            denom = std_val if std_val > 1e-12 else 1e-12
-            outlier_cnt = int(np.sum(channel_data > mean_val + 2 * denom))
-
-            features.extend([
-                mean_val, std_val, var_val, min_val, max_val, ptp_val, median_val,
-                ch_skew, ch_kurt, rms_val, mav_val, wl_val, zc_val, ssc_val,
-                q1_val, q3_val, aav_val, outlier_cnt
-            ])
-            
-            # 2. 扩展频域特征 (12个)
-            try:
-                freqs, psd = signal.welch(channel_data, fs=200, nperseg=min(64, len(channel_data)))
-                total_power = float(np.sum(psd))
-                if total_power > 1e-12:
-                    psd_norm = psd / total_power
-                    spectral_centroid = float(np.sum(freqs * psd_norm))
-                    spectral_spread = float(np.sqrt(np.sum(((freqs - spectral_centroid)**2) * psd_norm)))
-                    spectral_entropy = float(-np.sum(psd_norm * np.log2(psd_norm + 1e-12)))
-                else:
-                    psd_norm = np.zeros_like(psd)
-                    spectral_centroid = 0.0
-                    spectral_spread = 0.0
-                    spectral_entropy = 0.0
-
-                denom = float(np.mean(psd)) + 1e-12
-                peak_factor = float(np.max(psd) / denom)
-                coeff_var = float(np.std(psd) / denom)
-
-                features.extend([
-                    spectral_centroid,                  # 谱质心
-                    float(freqs[np.argmax(psd)]) if psd.size > 0 else 0.0,  # 主导频率
-                    total_power,                         # 总功率
-                    spectral_spread,                     # 谱扩展
-                    spectral_entropy,                    # 谱熵
-                    float(np.sum(psd[freqs <= 50])),    # 低频功率
-                    float(np.sum(psd[(freqs > 50) & (freqs <= 100)])), # 中频功率
-                    float(np.sum(psd[freqs > 100])),    # 高频功率
-                    float(np.sum(freqs**2 * psd_norm)), # 二阶谱矩
-                    float(np.sum(freqs**3 * psd_norm)), # 三阶谱矩
-                    peak_factor,                         # 峰值因子
-                    coeff_var                            # 变异系数
-                ])
-            except Exception:
-                features.extend([0.0] * 12)
-            
-            # 3. 小波特征 (8个)
-            try:
-                from scipy.signal import cwt, ricker
-                scales = np.arange(1, 9)
-                coeffs = cwt(channel_data, ricker, scales)
-                for i in range(8):
-                    features.append(np.sum(coeffs[i]**2))  # 各尺度能量
-            except:
-                features.extend([0] * 8)
-        
-        arr = np.array(features, dtype=np.float32)
-        return np.nan_to_num(arr, nan=0.0, posinf=1.0, neginf=-1.0)
+        """提取LightGBM特征 - 使用190维手工特征"""
+        # LightGBM直接使用190维手工特征进行分类
+        features = self.enhanced_extractor.extract_comprehensive_features(sample)
+        return np.nan_to_num(features, nan=0.0, posinf=1.0, neginf=-1.0)
+    
+    def extract_adann_features(self, sample):
+        """提取ADANN特征 - 使用190维手工特征"""
+        # ADANN使用190维手工特征进行域不变特征学习
+        features = self.enhanced_extractor.extract_comprehensive_features(sample)
+        return np.nan_to_num(features, nan=0.0, posinf=1.0, neginf=-1.0)
 
 class AdannLightgbmModelCreator:
     """ADANN + LightGBM 混合模型创建器"""
@@ -342,10 +259,10 @@ class AdannLightgbmModelCreator:
     def define_hyperparams(self, trial, arduino_mode=False):
         """定义超参数搜索空间"""
         params = {
-            # ADANN参数 - 更保守的学习率范围
-            'adann_learning_rate': trial.suggest_float('adann_learning_rate', 1e-5, 1e-3, log=True),
+            # ADANN参数 - 提高学习率范围和训练轮数
+            'adann_learning_rate': trial.suggest_float('adann_learning_rate', 1e-4, 1e-2, log=True),
             'adann_feature_size': trial.suggest_int('adann_feature_size', 32, 128, step=16),
-            'adann_epochs': trial.suggest_int('adann_epochs', 50, 100),
+            'adann_epochs': trial.suggest_int('adann_epochs', 100, 200),
             'gesture_loss_weight': trial.suggest_float('gesture_loss_weight', 0.5, 2.0),
             'domain_loss_weight': trial.suggest_float('domain_loss_weight', 0.5, 2.0),
         }
@@ -396,20 +313,23 @@ class AdannLightgbmModelCreator:
         N_FEATURES = 5
         N_CLASSES = 11
         
-        # 提取特征维度
+        # 提取特征维度（190维手工特征）
         dummy_input = np.random.randn(1, SEQUENCE_LENGTH, N_FEATURES)
-        adann_features = self.hybrid_extractor.enhanced_extractor.extract_comprehensive_features(dummy_input[0])
+        adann_features = self.hybrid_extractor.extract_adann_features(dummy_input[0])
         lgb_features = self.hybrid_extractor.extract_lightgbm_features(dummy_input[0])
         
-        # 创建ADANN模型
+        print(f"   ADANN特征维度: {len(adann_features)} (190维手工特征)")
+        print(f"   LightGBM特征维度: {len(lgb_features)} (190维手工特征)")
+        
+        # 创建ADANN模型（输入190维，输出64维域不变特征）
         adann_model = AdversarialFeatureExtractor(
-            input_size=len(adann_features),
-            feature_size=params.get('adann_feature_size', 64),
+            input_size=len(adann_features),  # 190维输入
+            feature_size=params.get('adann_feature_size', 64),  # 64维输出
             n_gestures=N_CLASSES,
             n_subjects=6
         ).to(self.device)
         
-        # 创建LightGBM模型（使用受限复杂度参数）
+        # 创建LightGBM模型（直接使用190维特征进行分类）
         lgb_model = lgb.LGBMClassifier(
             objective='multiclass',
             num_class=N_CLASSES,
@@ -423,6 +343,8 @@ class AdannLightgbmModelCreator:
             random_state=42,
             verbose=-1
         )
+        
+
         
         # 包装为混合模型
         hybrid_model = {
@@ -439,25 +361,27 @@ class AdannLightgbmModelCreator:
         """训练混合模型"""
         print("🚀 训练ADANN + LightGBM混合模型...")
         
-        # 1. 提取ADANN特征
-        print("   提取ADANN特征...")
+        # 1. 提取ADANN特征（190维手工特征）
+        print("   提取ADANN特征（190维手工特征）...")
         X_train_adann = []
         X_val_adann = []
         for sample in X_train:
-            features = self.hybrid_extractor.enhanced_extractor.extract_comprehensive_features(sample)
+            # ADANN使用190维手工特征进行域不变特征学习
+            features = self.hybrid_extractor.extract_adann_features(sample)
             X_train_adann.append(features)
         for sample in X_val:
-            features = self.hybrid_extractor.enhanced_extractor.extract_comprehensive_features(sample)
+            features = self.hybrid_extractor.extract_adann_features(sample)
             X_val_adann.append(features)
         
         X_train_adann = np.array(X_train_adann)
         X_val_adann = np.array(X_val_adann)
         
-        # 2. 提取LightGBM特征
-        print("   提取LightGBM特征...")
+        # 2. 提取LightGBM特征（190维手工特征）
+        print("   提取LightGBM特征（190维手工特征）...")
         X_train_lgb = []
         X_val_lgb = []
         for sample in X_train:
+            # LightGBM直接使用190维手工特征进行分类
             features = self.hybrid_extractor.extract_lightgbm_features(sample)
             X_train_lgb.append(features)
         for sample in X_val:
@@ -470,6 +394,8 @@ class AdannLightgbmModelCreator:
         # 3. 特征检查和标准化
         print(f"   特征检查 - ADANN特征: {X_train_adann.shape}, NaN: {np.sum(np.isnan(X_train_adann))}")
         print(f"   特征检查 - LightGBM特征: {X_train_lgb.shape}, NaN: {np.sum(np.isnan(X_train_lgb))}")
+        print(f"   特征分布 - ADANN范围: [{np.min(X_train_adann):.3f}, {np.max(X_train_adann):.3f}]")
+        print(f"   特征分布 - LightGBM范围: [{np.min(X_train_lgb):.3f}, {np.max(X_train_lgb):.3f}]")
         
         # 处理NaN值 - 使用更合理的替换策略
         if np.any(np.isnan(X_train_adann)):
@@ -605,9 +531,16 @@ class AdannLightgbmModelCreator:
         val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
         
         # 优化器和损失函数
-        optimizer = optim.Adam(model.parameters(), lr=hyperparams['adann_learning_rate'])
+        optimizer = optim.Adam(model.parameters(), lr=hyperparams['adann_learning_rate'], weight_decay=1e-5)
         gesture_criterion = nn.CrossEntropyLoss()
         domain_criterion = nn.CrossEntropyLoss()
+        
+        # 学习率调度器
+        try:
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=10, verbose=True)
+        except TypeError:
+            # 某些PyTorch版本不支持verbose参数
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=10)
         
         # 训练循环
         model.train()
@@ -621,15 +554,19 @@ class AdannLightgbmModelCreator:
             'val_loss': []
         } if return_history else None
         
+        best_val_acc = 0.0
+        patience_counter = 0
+        max_patience = 20
+        
         for epoch in range(n_epochs):
             total_loss = 0
             correct = 0
             total = 0
             
-            # 动态调整alpha - 修复数值稳定性
+            # 动态调整alpha - 更平滑的调整策略
             p = float(epoch) / n_epochs
-            # 限制alpha的范围，避免极值
-            alpha = np.clip(2. / (1. + np.exp(-10 * p)) - 1, 0.0, 0.99)
+            # 使用更平滑的sigmoid函数
+            alpha = np.clip(2. / (1. + np.exp(-5 * p)) - 1, 0.0, 0.95)
             model.set_alpha(alpha)
             
             for data, gesture_labels, subject_labels in train_loader:
@@ -650,8 +587,8 @@ class AdannLightgbmModelCreator:
                 
                 total_loss_batch.backward()
                 
-                # 更严格的梯度裁剪
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
+                # 梯度裁剪
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
                 
                 total_loss += total_loss_batch.item()
@@ -665,6 +602,9 @@ class AdannLightgbmModelCreator:
             # 验证
             val_acc = self._evaluate_adann(model, val_loader)
             
+            # 学习率调度
+            scheduler.step(val_acc)
+            
             # 记录历史
             if return_history and history:
                 history['accuracy'].append(float(epoch_acc))
@@ -672,8 +612,26 @@ class AdannLightgbmModelCreator:
                 history['loss'].append(float(epoch_loss))
                 history['val_loss'].append(float(epoch_loss))
             
-            if epoch % 20 == 0:
-                print(f"     ADANN Epoch {epoch}: Loss={epoch_loss:.4f}")
+            if epoch % 10 == 0:
+                print(f"     ADANN Epoch {epoch}: Loss={epoch_loss:.4f}, Acc={epoch_acc:.4f}, Val_Acc={val_acc:.4f}, Alpha={alpha:.3f}")
+            
+            # 早停检查
+            if val_acc > best_val_acc:
+                best_val_acc = val_acc
+                patience_counter = 0
+            else:
+                patience_counter += 1
+            
+            # 早停条件
+            if patience_counter >= max_patience:
+                print(f"     Early stopping at epoch {epoch} (best val_acc: {best_val_acc:.4f})")
+                break
+            
+            # 异常检测
+            if epoch_loss > 5.0:
+                print(f"     Warning: 损失过高 ({epoch_loss:.4f})，可能训练不稳定")
+            if epoch_acc < 0.2 and epoch > 50:
+                print(f"     Warning: 训练准确率过低 ({epoch_acc:.4f})，可能存在问题")
         
         if return_history:
             return model, history
@@ -731,11 +689,13 @@ class AdannLightgbmModelCreator:
     
     def predict(self, model, X):
         """预测"""
-        # 提取特征
+        # 提取特征 - 保持与训练时一致
         X_adann = []
         X_lgb = []
         for sample in X:
+            # ADANN使用智能特征（190维）
             adann_features = model['hybrid_extractor'].enhanced_extractor.extract_comprehensive_features(sample)
+            # LightGBM使用手工特征（190维）
             lgb_features = model['hybrid_extractor'].extract_lightgbm_features(sample)
             X_adann.append(adann_features)
             X_lgb.append(lgb_features)
@@ -761,11 +721,13 @@ class AdannLightgbmModelCreator:
     def predict_hybrid(self, model, X):
         """混合模型预测 - 返回概率分布"""
         try:
-            # 提取特征
+            # 提取特征 - 使用不同的特征提取方式
             X_adann = []
             X_lgb = []
             for sample in X:
+                # ADANN使用智能特征（190维）
                 adann_features = self.hybrid_extractor.enhanced_extractor.extract_comprehensive_features(sample)
+                # LightGBM使用手工特征（190维）
                 lgb_features = self.hybrid_extractor.extract_lightgbm_features(sample)
                 X_adann.append(adann_features)
                 X_lgb.append(lgb_features)
@@ -798,3 +760,4 @@ class AdannLightgbmModelCreator:
             print(f"⚠️ Hybrid prediction error: {e}")
             # 返回随机预测作为备选
             return np.random.rand(len(X), 11)
+

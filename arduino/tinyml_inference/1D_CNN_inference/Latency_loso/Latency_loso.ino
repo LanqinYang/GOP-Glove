@@ -11,7 +11,7 @@ const int NUM_SENSORS = 5;
 const int SEQUENCE_LENGTH = 100;
 
 // Tensor arena (same as main sketch)
-constexpr int kTensorArenaSize = 30 * 1024;
+constexpr int kTensorArenaSize = 96 * 1024;
 alignas(16) byte tensor_arena[kTensorArenaSize];
 
 // TFLM globals
