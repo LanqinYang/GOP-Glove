@@ -108,3 +108,4 @@ src/test/latency_benchmark_test/CPU/**
 src/test/latency_benchmark_test/*.pdf
 src/test/latency_benchmark_test/*.png
 Report_Figure_Code/
+Archive/
