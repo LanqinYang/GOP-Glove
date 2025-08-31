@@ -132,15 +132,14 @@ python run.py --model_type 1D_CNN --arduino --epochs 100 --n_trials 50
 2. **Augmentation**: Jittering, scaling, time warping
 3. **Normalization**: StandardScaler for consistent features
 
-### Model Optimization
+### Model Deployment
 
-- **Pruning**: Architectural and weight pruning for edge devices
-- **Quantization**: INT8 quantization for reduced memory
-- **Code Generation**: C/C++ code for traditional ML models
+- **Code Generation**: C/C++ code for ALL models (Transformer cannot infer)
+- **Convert Tool**: TensorFlowLite, PyTorch, m2cgen, micromlgen
 
 ## 🤝 Contributing
 
-We welcome contributions! This project demonstrates:
+I welcome contributions! This project demonstrates:
 - Quantified instability (shift, drift, channel-specific) and its impact on cross-user genelization.
 - DA-LGBM hybrid: ADANN (user-invariant features) + LightGBM (threshold-like cues) -> best LOSO result
 - Deployed on Arduino-class MCU; latency bottleneck pinpointed outside the classifier.
