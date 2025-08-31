@@ -10,9 +10,9 @@ A comprehensive gesture recognition system for British Sign Language (BSL) digit
 
 - **🤖 Multi-Model Support**: 1D CNN, Transformer, XGBoost, LightGBM, ADANN, and hybrid ADANN_LightGBM
 - **⚡ Automated Optimization**: Optuna-based hyperparameter tuning with pruning
-- **🔬 Rigorous Evaluation**: Standard train-test and Leave-One-Subject-Out (LOSO) cross-validation
+- **🔬 Rigorous Evaluation**: Standard train-test (Polled) and Leave-One-Subject-Out (LOSO) cross-validation strategy
 - **🧠 Domain Adaptation**: ADANN for superior cross-subject generalization
-- **📱 Edge Deployment**: Arduino-optimized models with quantization and pruning
+- **📱 Edge Deployment**: Arduino models with C header generation
 - **📊 Comprehensive Analysis**: Detailed evaluation metrics and visualizations
 
 ## 🛠️ Quick Start
@@ -51,20 +51,18 @@ python run.py --model_type 1D_CNN --epochs 100 --n_trials 50
 # LOSO cross-validation
 python run.py --model_type ADANN_LightGBM --loso --epochs 100 --n_trials 50
 
-# Arduino-optimized model
-python run.py --model_type LightGBM --arduino --epochs 100 --n_trials 50
 ```
 
 ### Supported Models
 
-| Model | Best LOSO Accuracy | Key Features |
-|-------|-------------------|--------------|
-| **ADANN_LightGBM** | **80.30%** | 🥇 Hybrid approach, best performance |
-| **ADANN** | **76.97%** | 🧠 Domain adaptation |
-| **1D_CNN** | **75.00%** | ⚡ Fast training, Arduino-ready |
-| **LightGBM** | **74.00%** | 🛡️ Classic ML, edge-friendly |
-| **Transformer** | **72.30%** | 🔍 Attention mechanisms |
-| **XGBoost** | **68.50%** | 📊 Traditional approach |
+| Model            | Best LOSO Accuracy | Key Features                                   |
+|------------------|-------------------|------------------------------------------------|
+| **ADANN_LightGBM** | **85.30%**        | Combines domain adaptation and boosting for top accuracy |
+| **ADANN**          | **80.30%**        | Domain adaptation for strong cross-subject generalization |
+| **Transformer**    | **77.58%**        | Fast training, suitable for Arduino deployment  |
+| **LightGBM**       | **77.12%**        | Lightweight, efficient, ideal for edge devices  |
+| **XGBoost**        | **76.82%**        | Gradient boosting, robust to overfitting        |
+| **1D_CNN**         | **75.91%**        | Deep learning baseline, effective for time series |
 
 ## 📁 Project Structure
 
@@ -93,9 +91,9 @@ python run.py --model_type LightGBM --arduino --epochs 100 --n_trials 50
 
 ## 📊 Performance Highlights
 
-- **Cross-Subject Generalization**: 80.30% accuracy with ADANN_LightGBM
+- **Cross-Subject Generalization**: 85.30% accuracy with DA_LGBM
 - **Real-time Inference**: <10ms latency on Arduino
-- **Model Size**: <50KB for edge deployment
+- **Model Size**: <1MB for edge deployment
 - **Robust Evaluation**: LOSO cross-validation across 6 subjects
 
 ## 🚀 Deployment
@@ -116,7 +114,7 @@ python run.py --model_type 1D_CNN --arduino --epochs 100 --n_trials 50
 # Arduino latency test
 # In Serial Monitor: latency 200 10
 
-# CPU/A100 benchmarking
+# Colab CPU benchmarking
 # Open: src/test/Latency_test_CPU.ipynb
 ```
 
@@ -143,31 +141,11 @@ python run.py --model_type 1D_CNN --arduino --epochs 100 --n_trials 50
 ## 🤝 Contributing
 
 We welcome contributions! This project demonstrates:
-- Modern ML pipeline design
-- Edge computing optimization
-- Multi-architecture comparison
-- Hardware-software integration
+- Quantified instability (shift, drift, channel-specific) and its impact on cross-user genelization.
+- DA-LGBM hybrid: ADANN (user-invariant features) + LightGBM (threshold-like cues) -> best LOSO result
+- Deployed on Arduino-class MCU; latency bottleneck pinpointed outside the classifier.
+
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 📚 Citation
-
-If you use this work in your research, please cite:
-
-```bibtex
-@article{bsl_gesture_recognition_2024,
-  title={BSL Gesture Recognition with Multi-Model Edge Deployment},
-  author={Your Name},
-  journal={arXiv preprint},
-  year={2024}
-}
-```
-
-## 🔗 Related Links
-
-- [Arduino Documentation](https://docs.arduino.cc/)
-- [TensorFlow Lite](https://www.tensorflow.org/lite)
-- [Optuna Documentation](https://optuna.org/)
-- [TinyML Book](https://tinymlbook.com/)
