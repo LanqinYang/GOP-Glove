@@ -65,6 +65,10 @@ datasets/raw/
 datasets/processed/
 datasets/cache/
 
+# Exception: track CSV files in datasets/gesture_csv/
+!datasets/gesture_csv/
+!datasets/gesture_csv/**/*.csv
+
 # OS generated files
 .DS_Store
 .DS_Store?
