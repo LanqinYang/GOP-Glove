@@ -4,25 +4,29 @@
 [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.16%2B-orange.svg)](https://tensorflow.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-A comprehensive gesture recognition system for British Sign Language (BSL) digits 0-9 and static gestures using a DIY flexible sensor glove. Features multiple ML architectures, automated hyperparameter optimization, and edge deployment capabilities.
+A comprehensive gesture recognition system for British Sign Language (BSL) digits 0-9 and static gestures using a DIY flexible sensor glove. This repo contains: sensor data collection firmware, training/evaluation code, and MCU-class on-device deployment code.
+
+## Manuscript (under review, 2026)
+*Domain-Adversarial Light Gradient Boosting Machine for On-Device Sign Recognition with Graphite-on-Paper Sensors*  
+Contact: ml23597@qmul.ac.uk
 
 ## 🚀 Features
 
-- **🤖 Multi-Model Support**: 1D CNN, Transformer, XGBoost, LightGBM, ADANN, and hybrid ADANN_LightGBM
-- **⚡ Automated Optimization**: Optuna-based hyperparameter tuning with pruning
-- **🔬 Rigorous Evaluation**: Standard train-test (Polled) and Leave-One-Subject-Out (LOSO) cross-validation strategy
-- **🧠 Domain Adaptation**: ADANN for superior cross-subject generalization
-- **📱 Edge Deployment**: Arduino models with C header generation
-- **📊 Comprehensive Analysis**: Detailed evaluation metrics and visualizations
+- **Hybrid model (DA-LGBM):** ADANN (domain-adversarial, user-invariant representation) + LightGBM (high-accuracy classifier)
+- **Confidence-gated fusion:** prediction-margin gating to mitigate sensor drift and inter-subject variability
+- **Hardware closed-loop:** DIY 5-channel GoP glove + readout circuit + 50 Hz acquisition firmware
+- **Edge deployment:** model translated to pure C (m2cgen) and deployed on Arduino Nano 33 BLE (256 KB SRAM)
+- **Strict cross-subject evaluation:** LOSO Macro-F1 = 83.66%, ablation shows ~+6% gain from domain-adversarial module
+- **Real-time on-device inference:** <0.5 s end-to-end pipeline latency on Arduino-class MCU
 
 ## 🛠️ Quick Start
 
 ### Installation
 
 ```bash
-git clone https://github.com/yourusername/bsl-gesture-recognition.git
-cd bsl-gesture-recognition
-pip install -r requirements.txt
+git clone https://github.com/LanqinYang/GOP-Glove.git
+cd GOP-Glove
+python -m pip install -r requirements.txt
 ```
 
 ### Data Collection
@@ -55,14 +59,14 @@ python run.py --model_type ADANN_LightGBM --loso --epochs 100 --n_trials 50
 
 ### Supported Models
 
-| Model            | Best LOSO Accuracy | Key Features                                   |
+| Model            | Best LOSO Macro-F1 | Key Features                                   |
 |------------------|-------------------|------------------------------------------------|
-| **ADANN_LightGBM** | **85.30%**        | Combines domain adaptation and boosting for top accuracy |
-| **ADANN**          | **80.30%**        | Domain adaptation for strong cross-subject generalization |
-| **Transformer**    | **77.58%**        | Fast training, suitable for Arduino deployment  |
-| **LightGBM**       | **77.12%**        | Lightweight, efficient, ideal for edge devices  |
-| **XGBoost**        | **76.82%**        | Gradient boosting, robust to overfitting        |
-| **1D_CNN**         | **75.91%**        | Deep learning baseline, effective for time series |
+| **ADANN_LightGBM** | **83.66%**        | Combines domain adaptation and boosting for top accuracy |
+| **ADANN**          | **77.12%**        | Domain adaptation for strong cross-subject generalization |
+| **Transformer**    | **74.99%**        | Fast training, suitable for Arduino deployment  |
+| **LightGBM**       | **74.17%**        | Lightweight, efficient, ideal for edge devices  |
+| **XGBoost**        | **74.79%**        | Gradient boosting, robust to overfitting        |
+| **1D_CNN**         | **73.45%**        | Deep learning baseline, effective for time series |
 
 ## 📁 Project Structure
 
@@ -88,13 +92,6 @@ python run.py --model_type ADANN_LightGBM --loso --epochs 100 --n_trials 50
 - **Hardware**: Arduino Nano 33 BLE Sense Rev2
 - **Edge Computing**: TensorFlow Lite, TinyML
 - **Data Processing**: NumPy, Pandas, Scikit-learn
-
-## 📊 Performance Highlights
-
-- **Cross-Subject Generalization**: 85.30% accuracy with DA_LGBM
-- **Real-time Inference**: <10ms latency on Arduino
-- **Model Size**: <1MB for edge deployment
-- **Robust Evaluation**: LOSO cross-validation across 6 subjects
 
 ## 🚀 Deployment
 
