@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn
 import lightgbm as lgb
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 from sklearn.ensemble import VotingClassifier
 from scipy import signal
 from scipy.stats import skew, kurtosis
@@ -220,21 +220,25 @@ class HybridFeatureExtractor:
     """混合特征提取器 - ADANN和LightGBM都使用相同的190维手工特征"""
     
     def __init__(self):
-        self.enhanced_extractor = AdannEnhancedExtractor()  # 综合特征提取器
+        from .train_adann import EnhancedFeatureExtractor as AdannEnhancedExtractor
+
+        self.enhanced_extractor = AdannEnhancedExtractor()
         self.scaler = StandardScaler()
+
+    def _apply_mask(self, features):
+        """
+        Keep compatibility with ablation-style masking hook.
+        Default behavior is no masking, only numeric sanitization.
+        """
+        return np.nan_to_num(features, nan=0.0, posinf=1.0, neginf=-1.0)
         
     def extract_lightgbm_features(self, sample):
-        """提取LightGBM特征 - 使用190维手工特征"""
-        # LightGBM直接使用190维手工特征进行分类
         features = self.enhanced_extractor.extract_comprehensive_features(sample)
-        return np.nan_to_num(features, nan=0.0, posinf=1.0, neginf=-1.0)
-    
-    def extract_adann_features(self, sample):
-        """提取ADANN特征 - 使用190维手工特征"""
-        # ADANN使用190维手工特征进行域不变特征学习
-        features = self.enhanced_extractor.extract_comprehensive_features(sample)
-        return np.nan_to_num(features, nan=0.0, posinf=1.0, neginf=-1.0)
+        return self._apply_mask(features)
 
+    def extract_adann_features(self, sample):
+        features = self.enhanced_extractor.extract_comprehensive_features(sample)
+        return self._apply_mask(features)
 class AdannLightgbmModelCreator:
     """ADANN + LightGBM 混合模型创建器"""
     
@@ -262,9 +266,15 @@ class AdannLightgbmModelCreator:
             # ADANN参数 - 提高学习率范围和训练轮数
             'adann_learning_rate': trial.suggest_float('adann_learning_rate', 1e-4, 1e-2, log=True),
             'adann_feature_size': trial.suggest_int('adann_feature_size', 32, 128, step=16),
+            'adann_dropout': trial.suggest_float('adann_dropout', 0.2, 0.5),
+            'adann_classifier_dropout': trial.suggest_float('adann_classifier_dropout', 0.1, 0.4),
             'adann_epochs': trial.suggest_int('adann_epochs', 100, 200),
             'gesture_loss_weight': trial.suggest_float('gesture_loss_weight', 0.5, 2.0),
             'domain_loss_weight': trial.suggest_float('domain_loss_weight', 0.5, 2.0),
+            'grl_gamma': trial.suggest_float('grl_gamma', 6.0, 14.0),
+            'grl_max': trial.suggest_float('grl_max', 0.90, 0.99),
+            'class_balanced_batches': False,
+            'auto_tune_ensemble_weight': False,
         }
 
         if arduino_mode:
@@ -294,14 +304,14 @@ class AdannLightgbmModelCreator:
                 'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64])
             })
 
-        # 添加数据增强参数 (非Arduino模式)
+        # 数据增强参数固定，不参与 Optuna 搜索
         if not arduino_mode:
             params.update({
-                'augment_factor': trial.suggest_int('augment_factor', 1, 3),
-                'jitter_noise_level': trial.suggest_float('jitter_noise_level', 0.005, 0.02),
-                'time_warp_max_speed': trial.suggest_int('time_warp_max_speed', 2, 4),
-                'scale_range': [trial.suggest_float('scale_min', 0.9, 0.98), trial.suggest_float('scale_max', 1.02, 1.1)],
-                'augment_prob': trial.suggest_float('augment_prob', 0.3, 0.8)
+                'augment_factor': 1,
+                'jitter_noise_level': 0.005,
+                'time_warp_max_speed': 2,
+                'scale_range': [0.98, 1.02],
+                'augment_prob': 0.3
             })
         
         return params
@@ -326,10 +336,14 @@ class AdannLightgbmModelCreator:
             input_size=len(adann_features),  # 190维输入
             feature_size=params.get('adann_feature_size', 64),  # 64维输出
             n_gestures=N_CLASSES,
-            n_subjects=6
+            n_subjects=6,
+            dropout=params.get('adann_dropout', 0.3),
+            classifier_dropout=params.get('adann_classifier_dropout', 0.2),
         ).to(self.device)
         
         # 创建LightGBM模型（直接使用190维特征进行分类）
+        # 注意：在某些 macOS + BLAS/OMP 组合下，多线程 LightGBM 在与 PyTorch/TensorFlow 混用时
+        # 可能出现死锁/卡死现象，因此这里强制使用单线程以保证稳定性。
         lgb_model = lgb.LGBMClassifier(
             objective='multiclass',
             num_class=N_CLASSES,
@@ -341,6 +355,7 @@ class AdannLightgbmModelCreator:
             n_estimators=params.get('lgb_n_estimators', 100),
             max_depth=params.get('lgb_max_depth', -1),
             random_state=42,
+            n_jobs=1,          # 关键：强制单线程，避免与其他库多线程死锁
             verbose=-1
         )
         
@@ -469,18 +484,113 @@ class AdannLightgbmModelCreator:
         # 7. 验证集成性能
         adann_val_pred = self._predict_adann(adann_model, X_val_adann_scaled)
         lgb_val_pred = lgb_model.predict(X_val_lgb_scaled)
-        
-        # 集成预测
+
+        adann_model.eval()
+        with torch.no_grad():
+            X_val_tensor = torch.FloatTensor(X_val_adann_scaled).to(self.device)
+            gesture_logits, _, _ = adann_model(X_val_tensor, reverse_gradient=False)
+            adann_val_probs = torch.softmax(gesture_logits, dim=1).cpu().numpy()
+
+        lgb_val_probs_raw = lgb_model.predict_proba(X_val_lgb_scaled)
+        lgb_val_probs = np.zeros_like(adann_val_probs)
+        for prob_col, class_label in enumerate(lgb_model.classes_):
+            class_idx = int(class_label)
+            if class_idx < lgb_val_probs.shape[1]:
+                lgb_val_probs[:, class_idx] = lgb_val_probs_raw[:, prob_col]
+
+        # 集成预测：使用和测试/推理一致的概率融合。
+        # 旧实现把两个分支的 hard label 转成 one-hot 后加权，会让 ensemble_weight
+        # 退化成“分支投票优先级”，Optuna/branch selection 看到的验证分数会偏离真实推理。
         ensemble_weight = model['ensemble_weight']
-        ensemble_pred = self._ensemble_predict(adann_val_pred, lgb_val_pred, ensemble_weight)
+        if hyperparams.get('auto_tune_ensemble_weight', False):
+            best_weight = ensemble_weight
+            best_f1 = -1.0
+            for candidate_weight in np.linspace(0.0, 1.0, 21):
+                candidate_probs = candidate_weight * adann_val_probs + (1 - candidate_weight) * lgb_val_probs
+                candidate_pred = candidate_probs.argmax(axis=1)
+                candidate_f1 = f1_score(y_val_encoded, candidate_pred, average='macro', zero_division=0)
+                if candidate_f1 > best_f1:
+                    best_f1 = candidate_f1
+                    best_weight = float(candidate_weight)
+            ensemble_weight = best_weight
+            model['ensemble_weight'] = ensemble_weight
+
+        ensemble_probs = ensemble_weight * adann_val_probs + (1 - ensemble_weight) * lgb_val_probs
+        ensemble_pred = ensemble_probs.argmax(axis=1)
+
+        def confidence_gated_predict(adann_prob, lgb_prob, adann_threshold, lgb_threshold, static_class):
+            gated = []
+            for p_adann, p_lgb in zip(adann_prob, lgb_prob):
+                y_adann = int(np.argmax(p_adann))
+                y_lgb = int(np.argmax(p_lgb))
+                c_adann = float(p_adann[y_adann])
+                c_lgb = float(p_lgb[y_lgb])
+                m_adann = float(np.partition(p_adann, -1)[-1] - np.partition(p_adann, -2)[-2])
+                m_lgb = float(np.partition(p_lgb, -1)[-1] - np.partition(p_lgb, -2)[-2])
+                adann_confident = c_adann >= adann_threshold
+                lgb_confident = c_lgb >= lgb_threshold
+
+                if adann_confident and lgb_confident and y_adann == y_lgb:
+                    gated.append(y_lgb)
+                elif adann_confident and not lgb_confident:
+                    gated.append(y_adann)
+                elif lgb_confident and not adann_confident:
+                    gated.append(y_lgb)
+                elif adann_confident and lgb_confident:
+                    gated.append(y_adann if m_adann > m_lgb else y_lgb)
+                else:
+                    gated.append(static_class)
+            return np.asarray(gated, dtype=int)
+
+        try:
+            static_class = int(gesture_encoder.transform([10])[0])
+        except Exception:
+            static_class = int(len(gesture_encoder.classes_) - 1)
+
+        adann_conf_threshold = float(hyperparams.get('adann_conf_threshold', 0.5))
+        lgb_conf_threshold = float(hyperparams.get('lgb_conf_threshold', 0.5))
+        gated_val_pred = confidence_gated_predict(
+            adann_val_probs,
+            lgb_val_probs,
+            adann_conf_threshold,
+            lgb_conf_threshold,
+            static_class,
+        )
+        if hyperparams.get('auto_tune_gate_thresholds', False):
+            best_gate_f1 = f1_score(y_val_encoded, gated_val_pred, average='macro', zero_division=0)
+            for candidate_adann_threshold in np.linspace(0.35, 0.90, 12):
+                for candidate_lgb_threshold in np.linspace(0.35, 0.90, 12):
+                    candidate_pred = confidence_gated_predict(
+                        adann_val_probs,
+                        lgb_val_probs,
+                        float(candidate_adann_threshold),
+                        float(candidate_lgb_threshold),
+                        static_class,
+                    )
+                    candidate_f1 = f1_score(y_val_encoded, candidate_pred, average='macro', zero_division=0)
+                    if candidate_f1 > best_gate_f1:
+                        best_gate_f1 = candidate_f1
+                        adann_conf_threshold = float(candidate_adann_threshold)
+                        lgb_conf_threshold = float(candidate_lgb_threshold)
+                        gated_val_pred = candidate_pred
         
         # 分支与集成准确率
         adann_val_acc = accuracy_score(y_val_encoded, adann_val_pred)
         lgb_val_acc = accuracy_score(y_val_encoded, lgb_val_pred)
         val_accuracy = accuracy_score(y_val_encoded, ensemble_pred)
+        adann_val_f1 = f1_score(y_val_encoded, adann_val_pred, average='macro', zero_division=0)
+        lgb_val_f1 = f1_score(y_val_encoded, lgb_val_pred, average='macro', zero_division=0)
+        val_macro_f1 = f1_score(y_val_encoded, ensemble_pred, average='macro', zero_division=0)
+        gated_val_acc = accuracy_score(y_val_encoded, gated_val_pred)
+        gated_val_f1 = f1_score(y_val_encoded, gated_val_pred, average='macro', zero_division=0)
         print(f"   验证准确率(ADANN): {adann_val_acc:.4f}")
         print(f"   验证准确率(LightGBM): {lgb_val_acc:.4f}")
-        print(f"   验证准确率(Ensemble w={ensemble_weight:.2f}): {val_accuracy:.4f}")
+        print(f"   验证准确率(Ensemble phi={ensemble_weight:.2f}): {val_accuracy:.4f}")
+        print(f"   验证准确率(Gated ta={adann_conf_threshold:.2f}, tl={lgb_conf_threshold:.2f}): {gated_val_acc:.4f}")
+        print(f"   验证Macro-F1(ADANN): {adann_val_f1:.4f}")
+        print(f"   验证Macro-F1(LightGBM): {lgb_val_f1:.4f}")
+        print(f"   验证Macro-F1(Ensemble phi={ensemble_weight:.2f}): {val_macro_f1:.4f}")
+        print(f"   验证Macro-F1(Gated): {gated_val_f1:.4f}")
         
         # 保存必要信息
         model['adann'] = adann_model
@@ -493,6 +603,13 @@ class AdannLightgbmModelCreator:
         model['val_accuracy_adann'] = adann_val_acc
         model['val_accuracy_lgb'] = lgb_val_acc
         model['val_accuracy_ensemble'] = val_accuracy
+        model['val_accuracy_gated'] = gated_val_acc
+        model['val_macro_f1_adann'] = adann_val_f1
+        model['val_macro_f1_lgb'] = lgb_val_f1
+        model['val_macro_f1_ensemble'] = val_macro_f1
+        model['val_macro_f1_gated'] = gated_val_f1
+        model['adann_conf_threshold'] = adann_conf_threshold
+        model['lgb_conf_threshold'] = lgb_conf_threshold
         
         if return_history:
             # 使用ADANN的真实训练历史
@@ -512,8 +629,9 @@ class AdannLightgbmModelCreator:
     
     def _train_adann(self, model, X_train, y_train, subjects_train, X_val, y_val, subjects_val, hyperparams, return_history=False):
         """训练ADANN部分"""
-        from torch.utils.data import DataLoader, TensorDataset
+        from torch.utils.data import DataLoader, TensorDataset, WeightedRandomSampler
         import torch.optim as optim
+        import copy
         
         # 创建数据加载器
         train_dataset = TensorDataset(
@@ -521,7 +639,18 @@ class AdannLightgbmModelCreator:
             torch.LongTensor(y_train).to(self.device),
             torch.LongTensor(subjects_train).to(self.device)
         )
-        train_loader = DataLoader(train_dataset, batch_size=hyperparams['batch_size'], shuffle=True)
+        if hyperparams.get('class_balanced_batches', False):
+            class_counts = np.bincount(y_train, minlength=int(np.max(y_train)) + 1).astype(np.float64)
+            class_counts[class_counts == 0] = 1.0
+            sample_weights = 1.0 / class_counts[y_train]
+            sampler = WeightedRandomSampler(
+                weights=torch.DoubleTensor(sample_weights),
+                num_samples=len(sample_weights),
+                replacement=True,
+            )
+            train_loader = DataLoader(train_dataset, batch_size=hyperparams['batch_size'], sampler=sampler)
+        else:
+            train_loader = DataLoader(train_dataset, batch_size=hyperparams['batch_size'], shuffle=True)
         
         val_dataset = TensorDataset(
             torch.FloatTensor(X_val).to(self.device),
@@ -554,7 +683,8 @@ class AdannLightgbmModelCreator:
             'val_loss': []
         } if return_history else None
         
-        best_val_acc = 0.0
+        best_val_macro_f1 = 0.0
+        best_state_dict = copy.deepcopy(model.state_dict())
         patience_counter = 0
         max_patience = 20
         
@@ -563,10 +693,10 @@ class AdannLightgbmModelCreator:
             correct = 0
             total = 0
             
-            # 动态调整alpha - 更平滑的调整策略
             p = float(epoch) / n_epochs
-            # 使用更平滑的sigmoid函数
-            alpha = np.clip(2. / (1. + np.exp(-5 * p)) - 1, 0.0, 0.95)
+            grl_gamma = float(hyperparams.get('grl_gamma', 10.0))
+            grl_max = float(hyperparams.get('grl_max', 0.99))
+            alpha = np.clip(2. / (1. + np.exp(-grl_gamma * p)) - 1, 0.0, grl_max)
             model.set_alpha(alpha)
             
             for data, gesture_labels, subject_labels in train_loader:
@@ -600,31 +730,32 @@ class AdannLightgbmModelCreator:
             epoch_acc = correct / total
             
             # 验证
-            val_acc = self._evaluate_adann(model, val_loader)
+            val_acc, val_macro_f1 = self._evaluate_adann(model, val_loader)
             
             # 学习率调度
-            scheduler.step(val_acc)
+            scheduler.step(val_macro_f1)
             
             # 记录历史
             if return_history and history:
                 history['accuracy'].append(float(epoch_acc))
                 history['val_accuracy'].append(float(val_acc))
+                history.setdefault('val_macro_f1', []).append(float(val_macro_f1))
                 history['loss'].append(float(epoch_loss))
                 history['val_loss'].append(float(epoch_loss))
             
             if epoch % 10 == 0:
-                print(f"     ADANN Epoch {epoch}: Loss={epoch_loss:.4f}, Acc={epoch_acc:.4f}, Val_Acc={val_acc:.4f}, Alpha={alpha:.3f}")
+                print(f"     ADANN Epoch {epoch}: Loss={epoch_loss:.4f}, Acc={epoch_acc:.4f}, Val_Acc={val_acc:.4f}, Val_F1={val_macro_f1:.4f}, Alpha={alpha:.3f}")
             
-            # 早停检查
-            if val_acc > best_val_acc:
-                best_val_acc = val_acc
+            if val_macro_f1 > best_val_macro_f1:
+                best_val_macro_f1 = val_macro_f1
+                best_state_dict = copy.deepcopy(model.state_dict())
                 patience_counter = 0
             else:
                 patience_counter += 1
             
             # 早停条件
             if patience_counter >= max_patience:
-                print(f"     Early stopping at epoch {epoch} (best val_acc: {best_val_acc:.4f})")
+                print(f"     Early stopping at epoch {epoch} (best val_macro_f1: {best_val_macro_f1:.4f})")
                 break
             
             # 异常检测
@@ -632,7 +763,7 @@ class AdannLightgbmModelCreator:
                 print(f"     Warning: 损失过高 ({epoch_loss:.4f})，可能训练不稳定")
             if epoch_acc < 0.2 and epoch > 50:
                 print(f"     Warning: 训练准确率过低 ({epoch_acc:.4f})，可能存在问题")
-        
+        model.load_state_dict(best_state_dict)
         if return_history:
             return model, history
         else:
@@ -641,16 +772,21 @@ class AdannLightgbmModelCreator:
     def _evaluate_adann(self, model, val_loader):
         """评估ADANN模型"""
         model.eval()
-        correct = 0
-        total = 0
+        y_true = []
+        y_pred = []
         
         with torch.no_grad():
             for data, gesture_labels, subject_labels in val_loader:
                 gesture_pred, _, _ = model(data, reverse_gradient=False)
-                correct += (gesture_pred.argmax(1) == gesture_labels).sum().item()
-                total += data.size(0)
+                y_true.extend(gesture_labels.cpu().numpy())
+                y_pred.extend(gesture_pred.argmax(1).cpu().numpy())
         
-        return correct / total if total > 0 else 0.0
+        if not y_true:
+            return 0.0, 0.0
+        return (
+            accuracy_score(y_true, y_pred),
+            f1_score(y_true, y_pred, average='macro', zero_division=0),
+        )
     
     def _predict_adann(self, model, X):
         """ADANN预测"""
@@ -694,7 +830,7 @@ class AdannLightgbmModelCreator:
         X_lgb = []
         for sample in X:
             # ADANN使用智能特征（190维）
-            adann_features = model['hybrid_extractor'].enhanced_extractor.extract_comprehensive_features(sample)
+            adann_features = model['hybrid_extractor'].extract_adann_features(sample)
             # LightGBM使用手工特征（190维）
             lgb_features = model['hybrid_extractor'].extract_lightgbm_features(sample)
             X_adann.append(adann_features)
@@ -711,8 +847,23 @@ class AdannLightgbmModelCreator:
         adann_pred = self._predict_adann(model['adann'], X_adann_scaled)
         lgb_pred = model['lightgbm'].predict(X_lgb_scaled)
         
-        # 集成预测
-        ensemble_pred = self._ensemble_predict(adann_pred, lgb_pred, model['ensemble_weight'])
+        # 集成预测：保持和 train_model/predict_hybrid 的概率融合一致
+        model['adann'].eval()
+        with torch.no_grad():
+            X_tensor = torch.FloatTensor(X_adann_scaled).to(self.device)
+            gesture_logits, _, _ = model['adann'](X_tensor, reverse_gradient=False)
+            adann_probs = torch.softmax(gesture_logits, dim=1).cpu().numpy()
+
+        lgb_probs_raw = model['lightgbm'].predict_proba(X_lgb_scaled)
+        lgb_probs = np.zeros_like(adann_probs)
+        for prob_col, class_label in enumerate(model['lightgbm'].classes_):
+            class_idx = int(class_label)
+            if class_idx < lgb_probs.shape[1]:
+                lgb_probs[:, class_idx] = lgb_probs_raw[:, prob_col]
+
+        ensemble_weight = model['ensemble_weight']
+        ensemble_probs = ensemble_weight * adann_probs + (1 - ensemble_weight) * lgb_probs
+        ensemble_pred = ensemble_probs.argmax(axis=1)
         
         # 解码标签
         predictions_decoded = model['gesture_encoder'].inverse_transform(ensemble_pred)
@@ -726,9 +877,9 @@ class AdannLightgbmModelCreator:
             X_lgb = []
             for sample in X:
                 # ADANN使用智能特征（190维）
-                adann_features = self.hybrid_extractor.enhanced_extractor.extract_comprehensive_features(sample)
+                adann_features = model['hybrid_extractor'].extract_adann_features(sample)
                 # LightGBM使用手工特征（190维）
-                lgb_features = self.hybrid_extractor.extract_lightgbm_features(sample)
+                lgb_features = model['hybrid_extractor'].extract_lightgbm_features(sample)
                 X_adann.append(adann_features)
                 X_lgb.append(lgb_features)
             
@@ -748,7 +899,12 @@ class AdannLightgbmModelCreator:
                 adann_probs = torch.softmax(gesture_logits, dim=1).cpu().numpy()
             
             # LightGBM预测
-            lgb_probs = model['lightgbm'].predict_proba(X_lgb_scaled)
+            lgb_probs_raw = model['lightgbm'].predict_proba(X_lgb_scaled)
+            lgb_probs = np.zeros_like(adann_probs)
+            for prob_col, class_label in enumerate(model['lightgbm'].classes_):
+                class_idx = int(class_label)
+                if class_idx < lgb_probs.shape[1]:
+                    lgb_probs[:, class_idx] = lgb_probs_raw[:, prob_col]
             
             # 集成预测 (加权平均概率)
             ensemble_weight = model['ensemble_weight']
@@ -760,4 +916,3 @@ class AdannLightgbmModelCreator:
             print(f"⚠️ Hybrid prediction error: {e}")
             # 返回随机预测作为备选
             return np.random.rand(len(X), 11)
-

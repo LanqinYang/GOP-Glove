@@ -1,0 +1,42 @@
+{
+  "dataset": {
+    "participants": 6,
+    "classes": 11,
+    "windows": 660,
+    "nominal_acquisition_hz": 50,
+    "acquisition_seconds": 2,
+    "resampled_shape": [
+      100,
+      5
+    ]
+  },
+  "descriptor": {
+    "dimensions": 190,
+    "per_channel": {
+      "time": 18,
+      "frequency": 12,
+      "wavelet": 8
+    },
+    "legacy_periodogram_coordinate": 250,
+    "physical_frequency_equivalence_verified": false
+  },
+  "protocol_manifests": {
+    "seed": 42,
+    "input_order": "lexicographic_filename",
+    "historical_split_recovery": false,
+    "file": "reproducibility/generated/protocol_metadata.json"
+  },
+  "gate_audit": {
+    "adann_threshold": 0.5,
+    "lightgbm_threshold": 0.5,
+    "low_confidence_label": "Static",
+    "independent_seed": 810,
+    "source": "reproducibility/results/v7_fusion_delta_final_seed810"
+  },
+  "legacy_hardware_demo": {
+    "threshold": 0.6,
+    "low_confidence_behavior": "probability averaging then argmax",
+    "matched_to_offline_gate": false
+  },
+  "result_status": "archived_primary_and_independent_diagnostics_are_separate"
+}

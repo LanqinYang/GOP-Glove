@@ -18,6 +18,11 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import log_loss
 import optuna
 
+try:
+    from .feature_utils import extract_wavelet_energies
+except ImportError:
+    from src.training.feature_utils import extract_wavelet_energies
+
 # Constants
 SEQUENCE_LENGTH = 100
 N_FEATURES = 5
@@ -276,13 +281,7 @@ class EnhancedFeatureExtractor:
 
             # 小波特征 (8个)：不同时间尺度上分析信号的能量分布
             try:
-                from scipy.signal import cwt, ricker
-                scales = np.arange(1, 9)  # 8个尺度
-                coeffs = cwt(channel_data, ricker, scales)
-                for i in range(8):
-                    energy = float(np.sum(coeffs[i]**2))
-                    energy = 0.0 if (np.isnan(energy) or np.isinf(energy)) else energy
-                    features.append(energy)
+                features.extend(extract_wavelet_energies(channel_data))
             except Exception:
                 features.extend([0.0] * 8)
 
@@ -415,7 +414,7 @@ class LightgbmModelCreator:
             'reg_lambda': params.get('reg_lambda', 0.1),
             'random_state': 42,
             'verbose': -1,
-            'n_jobs': -1
+            'n_jobs': params.get('n_jobs', -1)
         }
         
         # 添加额外参数（如果存在）

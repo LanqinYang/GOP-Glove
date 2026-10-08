@@ -1,0 +1,1493 @@
+{
+  "average_accuracy": 0.834848484848485,
+  "average_f1_macro": 0.816251596282454,
+  "best_hyperparameters_for_deployment": {
+    "adann_learning_rate": 0.002409214543666477,
+    "adann_feature_size": 64,
+    "adann_epochs": 194,
+    "gesture_loss_weight": 0.7062814162189899,
+    "domain_loss_weight": 1.0115995265753877,
+    "lgb_num_leaves": 20,
+    "lgb_learning_rate": 0.2781611493007832,
+    "lgb_feature_fraction": 0.9264036120285886,
+    "lgb_bagging_fraction": 0.5547649766290934,
+    "lgb_min_child_samples": 68,
+    "lgb_n_estimators": 418,
+    "lgb_max_depth": 10,
+    "ensemble_adann_weight": 0.5118602313424025,
+    "batch_size": 64,
+    "augment_factor": 3,
+    "jitter_noise_level": 0.01449652185909902,
+    "time_warp_max_speed": 3,
+    "scale_min": 0.9279367659690129,
+    "scale_max": 1.0780764543096193,
+    "augment_prob": 0.7485551299762885
+  },
+  "best_trial_value (val_accuracy)": 1.0,
+  "fold_details": [
+    {
+      "run_name": "ADANN_LightGBM_loso_fold_1",
+      "test_accuracy": 0.9363636363636364,
+      "classification_report": {
+        "Class_0": {
+          "precision": 1.0,
+          "recall": 0.4,
+          "f1-score": 0.5714285714285715,
+          "support": 10.0
+        },
+        "Class_1": {
+          "precision": 0.625,
+          "recall": 1.0,
+          "f1-score": 0.7692307692307693,
+          "support": 10.0
+        },
+        "Class_2": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_3": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_4": {
+          "precision": 1.0,
+          "recall": 0.9,
+          "f1-score": 0.9473684210526316,
+          "support": 10.0
+        },
+        "Class_5": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_6": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_7": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_8": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_9": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_10": {
+          "precision": 0.9090909090909091,
+          "recall": 1.0,
+          "f1-score": 0.9523809523809523,
+          "support": 10.0
+        },
+        "accuracy": 0.9363636363636364,
+        "macro avg": {
+          "precision": 0.9576446280991735,
+          "recall": 0.9363636363636364,
+          "f1-score": 0.9309462467357205,
+          "support": 110.0
+        },
+        "weighted avg": {
+          "precision": 0.9576446280991736,
+          "recall": 0.9363636363636364,
+          "f1-score": 0.9309462467357205,
+          "support": 110.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          4,
+          6,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          9,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10
+        ]
+      ],
+      "class_names": [
+        "Class_0",
+        "Class_1",
+        "Class_2",
+        "Class_3",
+        "Class_4",
+        "Class_5",
+        "Class_6",
+        "Class_7",
+        "Class_8",
+        "Class_9",
+        "Class_10"
+      ],
+      "proba_path": "outputs/ADANN_LightGBM/loso/full/ablation_A/ADANN_LightGBM_loso_fold_1_proba.npy"
+    },
+    {
+      "run_name": "ADANN_LightGBM_loso_fold_2",
+      "test_accuracy": 0.6909090909090909,
+      "classification_report": {
+        "Class_0": {
+          "precision": 0.35,
+          "recall": 0.7,
+          "f1-score": 0.4666666666666667,
+          "support": 10.0
+        },
+        "Class_1": {
+          "precision": 0.8571428571428571,
+          "recall": 0.6,
+          "f1-score": 0.7058823529411764,
+          "support": 10.0
+        },
+        "Class_2": {
+          "precision": 0.8888888888888888,
+          "recall": 0.8,
+          "f1-score": 0.8421052631578948,
+          "support": 10.0
+        },
+        "Class_3": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 10.0
+        },
+        "Class_4": {
+          "precision": 0.8333333333333334,
+          "recall": 1.0,
+          "f1-score": 0.9090909090909091,
+          "support": 10.0
+        },
+        "Class_5": {
+          "precision": 0.4,
+          "recall": 1.0,
+          "f1-score": 0.5714285714285715,
+          "support": 10.0
+        },
+        "Class_6": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 10.0
+        },
+        "Class_7": {
+          "precision": 0.8333333333333334,
+          "recall": 0.5,
+          "f1-score": 0.625,
+          "support": 10.0
+        },
+        "Class_8": {
+          "precision": 0.9090909090909091,
+          "recall": 1.0,
+          "f1-score": 0.9523809523809523,
+          "support": 10.0
+        },
+        "Class_9": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_10": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "accuracy": 0.6909090909090909,
+        "macro avg": {
+          "precision": 0.6428899383444838,
+          "recall": 0.6909090909090909,
+          "f1-score": 0.6429595196060155,
+          "support": 110.0
+        },
+        "weighted avg": {
+          "precision": 0.6428899383444838,
+          "recall": 0.6909090909090909,
+          "f1-score": 0.6429595196060156,
+          "support": 110.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          7,
+          0,
+          0,
+          0,
+          0,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          6,
+          0,
+          0,
+          0,
+          2,
+          0,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          8,
+          0,
+          0,
+          1,
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          0,
+          0,
+          9,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          2,
+          1,
+          0,
+          0,
+          2,
+          0,
+          0,
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10
+        ]
+      ],
+      "class_names": [
+        "Class_0",
+        "Class_1",
+        "Class_2",
+        "Class_3",
+        "Class_4",
+        "Class_5",
+        "Class_6",
+        "Class_7",
+        "Class_8",
+        "Class_9",
+        "Class_10"
+      ],
+      "proba_path": "outputs/ADANN_LightGBM/loso/full/ablation_A/ADANN_LightGBM_loso_fold_2_proba.npy"
+    },
+    {
+      "run_name": "ADANN_LightGBM_loso_fold_3",
+      "test_accuracy": 0.8818181818181818,
+      "classification_report": {
+        "Class_0": {
+          "precision": 0.8333333333333334,
+          "recall": 0.5,
+          "f1-score": 0.625,
+          "support": 10.0
+        },
+        "Class_1": {
+          "precision": 0.875,
+          "recall": 0.7,
+          "f1-score": 0.7777777777777777,
+          "support": 10.0
+        },
+        "Class_2": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_3": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_4": {
+          "precision": 1.0,
+          "recall": 0.9,
+          "f1-score": 0.9473684210526316,
+          "support": 10.0
+        },
+        "Class_5": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_6": {
+          "precision": 1.0,
+          "recall": 0.9,
+          "f1-score": 0.9473684210526316,
+          "support": 10.0
+        },
+        "Class_7": {
+          "precision": 0.5882352941176471,
+          "recall": 1.0,
+          "f1-score": 0.7407407407407407,
+          "support": 10.0
+        },
+        "Class_8": {
+          "precision": 0.7692307692307693,
+          "recall": 1.0,
+          "f1-score": 0.8695652173913044,
+          "support": 10.0
+        },
+        "Class_9": {
+          "precision": 1.0,
+          "recall": 0.7,
+          "f1-score": 0.8235294117647058,
+          "support": 10.0
+        },
+        "Class_10": {
+          "precision": 0.9090909090909091,
+          "recall": 1.0,
+          "f1-score": 0.9523809523809523,
+          "support": 10.0
+        },
+        "accuracy": 0.8818181818181818,
+        "macro avg": {
+          "precision": 0.9068082096156963,
+          "recall": 0.8818181818181817,
+          "f1-score": 0.8803391765600677,
+          "support": 110.0
+        },
+        "weighted avg": {
+          "precision": 0.9068082096156963,
+          "recall": 0.8818181818181818,
+          "f1-score": 0.8803391765600677,
+          "support": 110.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          5,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          4,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          7,
+          0,
+          0,
+          0,
+          0,
+          0,
+          3,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          9,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          9,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          3,
+          7,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10
+        ]
+      ],
+      "class_names": [
+        "Class_0",
+        "Class_1",
+        "Class_2",
+        "Class_3",
+        "Class_4",
+        "Class_5",
+        "Class_6",
+        "Class_7",
+        "Class_8",
+        "Class_9",
+        "Class_10"
+      ],
+      "proba_path": "outputs/ADANN_LightGBM/loso/full/ablation_A/ADANN_LightGBM_loso_fold_3_proba.npy"
+    },
+    {
+      "run_name": "ADANN_LightGBM_loso_fold_4",
+      "test_accuracy": 0.9363636363636364,
+      "classification_report": {
+        "Class_0": {
+          "precision": 0.8888888888888888,
+          "recall": 0.8,
+          "f1-score": 0.8421052631578948,
+          "support": 10.0
+        },
+        "Class_1": {
+          "precision": 1.0,
+          "recall": 0.7,
+          "f1-score": 0.8235294117647058,
+          "support": 10.0
+        },
+        "Class_2": {
+          "precision": 0.8333333333333334,
+          "recall": 1.0,
+          "f1-score": 0.9090909090909091,
+          "support": 10.0
+        },
+        "Class_3": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_4": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_5": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_6": {
+          "precision": 0.8333333333333334,
+          "recall": 1.0,
+          "f1-score": 0.9090909090909091,
+          "support": 10.0
+        },
+        "Class_7": {
+          "precision": 1.0,
+          "recall": 0.8,
+          "f1-score": 0.888888888888889,
+          "support": 10.0
+        },
+        "Class_8": {
+          "precision": 0.9090909090909091,
+          "recall": 1.0,
+          "f1-score": 0.9523809523809523,
+          "support": 10.0
+        },
+        "Class_9": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_10": {
+          "precision": 0.9090909090909091,
+          "recall": 1.0,
+          "f1-score": 0.9523809523809523,
+          "support": 10.0
+        },
+        "accuracy": 0.9363636363636364,
+        "macro avg": {
+          "precision": 0.9430670339761247,
+          "recall": 0.9363636363636364,
+          "f1-score": 0.9343152078868375,
+          "support": 110.0
+        },
+        "weighted avg": {
+          "precision": 0.9430670339761251,
+          "recall": 0.9363636363636364,
+          "f1-score": 0.9343152078868374,
+          "support": 110.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          8,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          7,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          8,
+          1,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10
+        ]
+      ],
+      "class_names": [
+        "Class_0",
+        "Class_1",
+        "Class_2",
+        "Class_3",
+        "Class_4",
+        "Class_5",
+        "Class_6",
+        "Class_7",
+        "Class_8",
+        "Class_9",
+        "Class_10"
+      ],
+      "proba_path": "outputs/ADANN_LightGBM/loso/full/ablation_A/ADANN_LightGBM_loso_fold_4_proba.npy"
+    },
+    {
+      "run_name": "ADANN_LightGBM_loso_fold_5",
+      "test_accuracy": 0.7454545454545455,
+      "classification_report": {
+        "Class_0": {
+          "precision": 0.6,
+          "recall": 0.6,
+          "f1-score": 0.6,
+          "support": 10.0
+        },
+        "Class_1": {
+          "precision": 0.125,
+          "recall": 0.1,
+          "f1-score": 0.11111111111111112,
+          "support": 10.0
+        },
+        "Class_2": {
+          "precision": 1.0,
+          "recall": 0.7,
+          "f1-score": 0.8235294117647058,
+          "support": 10.0
+        },
+        "Class_3": {
+          "precision": 0.6666666666666666,
+          "recall": 0.2,
+          "f1-score": 0.30769230769230765,
+          "support": 10.0
+        },
+        "Class_4": {
+          "precision": 0.9090909090909091,
+          "recall": 1.0,
+          "f1-score": 0.9523809523809523,
+          "support": 10.0
+        },
+        "Class_5": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_6": {
+          "precision": 0.7142857142857143,
+          "recall": 1.0,
+          "f1-score": 0.8333333333333333,
+          "support": 10.0
+        },
+        "Class_7": {
+          "precision": 0.5,
+          "recall": 1.0,
+          "f1-score": 0.6666666666666666,
+          "support": 10.0
+        },
+        "Class_8": {
+          "precision": 1.0,
+          "recall": 0.7,
+          "f1-score": 0.8235294117647058,
+          "support": 10.0
+        },
+        "Class_9": {
+          "precision": 0.9090909090909091,
+          "recall": 1.0,
+          "f1-score": 0.9523809523809523,
+          "support": 10.0
+        },
+        "Class_10": {
+          "precision": 1.0,
+          "recall": 0.9,
+          "f1-score": 0.9473684210526316,
+          "support": 10.0
+        },
+        "accuracy": 0.7454545454545455,
+        "macro avg": {
+          "precision": 0.7658303817394727,
+          "recall": 0.7454545454545454,
+          "f1-score": 0.7289084152861243,
+          "support": 110.0
+        },
+        "weighted avg": {
+          "precision": 0.7658303817394726,
+          "recall": 0.7454545454545455,
+          "f1-score": 0.7289084152861242,
+          "support": 110.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          6,
+          0,
+          0,
+          0,
+          0,
+          0,
+          4,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          8,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          7,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          5,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          7,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          9
+        ]
+      ],
+      "class_names": [
+        "Class_0",
+        "Class_1",
+        "Class_2",
+        "Class_3",
+        "Class_4",
+        "Class_5",
+        "Class_6",
+        "Class_7",
+        "Class_8",
+        "Class_9",
+        "Class_10"
+      ],
+      "proba_path": "outputs/ADANN_LightGBM/loso/full/ablation_A/ADANN_LightGBM_loso_fold_5_proba.npy"
+    },
+    {
+      "run_name": "ADANN_LightGBM_loso_fold_6",
+      "test_accuracy": 0.8181818181818182,
+      "classification_report": {
+        "Class_0": {
+          "precision": 0.4,
+          "recall": 0.2,
+          "f1-score": 0.26666666666666666,
+          "support": 10.0
+        },
+        "Class_1": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 10.0
+        },
+        "Class_2": {
+          "precision": 0.6666666666666666,
+          "recall": 1.0,
+          "f1-score": 0.8,
+          "support": 10.0
+        },
+        "Class_3": {
+          "precision": 0.5,
+          "recall": 1.0,
+          "f1-score": 0.6666666666666666,
+          "support": 10.0
+        },
+        "Class_4": {
+          "precision": 0.9090909090909091,
+          "recall": 1.0,
+          "f1-score": 0.9523809523809523,
+          "support": 10.0
+        },
+        "Class_5": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_6": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_7": {
+          "precision": 1.0,
+          "recall": 0.9,
+          "f1-score": 0.9473684210526316,
+          "support": 10.0
+        },
+        "Class_8": {
+          "precision": 1.0,
+          "recall": 0.9,
+          "f1-score": 0.9473684210526316,
+          "support": 10.0
+        },
+        "Class_9": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "Class_10": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "accuracy": 0.8181818181818182,
+        "macro avg": {
+          "precision": 0.7705234159779615,
+          "recall": 0.8181818181818182,
+          "f1-score": 0.780041011619959,
+          "support": 110.0
+        },
+        "weighted avg": {
+          "precision": 0.7705234159779614,
+          "recall": 0.8181818181818182,
+          "f1-score": 0.780041011619959,
+          "support": 110.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          2,
+          0,
+          0,
+          7,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          4,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          9,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          9,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          10
+        ]
+      ],
+      "class_names": [
+        "Class_0",
+        "Class_1",
+        "Class_2",
+        "Class_3",
+        "Class_4",
+        "Class_5",
+        "Class_6",
+        "Class_7",
+        "Class_8",
+        "Class_9",
+        "Class_10"
+      ],
+      "proba_path": "outputs/ADANN_LightGBM/loso/full/ablation_A/ADANN_LightGBM_loso_fold_6_proba.npy"
+    }
+  ]
+}

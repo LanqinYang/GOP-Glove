@@ -1,0 +1,27 @@
+{
+  "model_type": "ADANN_LightGBM",
+  "training_mode": "loso",
+  "optimization_mode": "full",
+  "fold_id": 3,
+  "timestamp": "20260428_225432",
+  "best_trial_number": 48,
+  "best_value": 1.0,
+  "best_params": {
+    "adann_learning_rate": 0.0007492406002124202,
+    "adann_feature_size": 64,
+    "adann_epochs": 124,
+    "gesture_loss_weight": 1.4241163439763982,
+    "domain_loss_weight": 1.2943613286865108,
+    "lgb_num_leaves": 81,
+    "lgb_learning_rate": 0.1647331512846887,
+    "lgb_feature_fraction": 0.528678770968513,
+    "lgb_bagging_fraction": 0.8710253621174137,
+    "lgb_min_child_samples": 69,
+    "lgb_n_estimators": 334,
+    "lgb_max_depth": 13,
+    "ensemble_adann_weight": 0.5761603282146677,
+    "batch_size": 16
+  },
+  "n_trials": 50,
+  "study_direction": "MAXIMIZE"
+}

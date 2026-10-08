@@ -1,0 +1,26 @@
+{
+  "model_type": "LightGBM",
+  "training_mode": "loso",
+  "optimization_mode": "full",
+  "fold_id": 2,
+  "timestamp": "20250822_142733",
+  "best_trial_number": 14,
+  "best_value": 0.9954545454545455,
+  "best_params": {
+    "n_estimators": 706,
+    "num_leaves": 79,
+    "learning_rate": 0.08362218816731709,
+    "feature_fraction": 0.6502088409539196,
+    "bagging_fraction": 0.40721542424400015,
+    "bagging_freq": 5,
+    "min_child_samples": 78,
+    "reg_alpha": 0.4591169816907876,
+    "reg_lambda": 0.2503535596174228,
+    "max_depth": 15,
+    "min_split_gain": 0.1541930231566474,
+    "subsample": 0.7447333719046403,
+    "colsample_bytree": 0.6331445006802419
+  },
+  "n_trials": 50,
+  "study_direction": "MAXIMIZE"
+}

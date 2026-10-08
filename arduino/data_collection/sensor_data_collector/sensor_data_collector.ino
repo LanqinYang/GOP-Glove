@@ -5,7 +5,7 @@
   - Continuous raw sensor data collection at 50Hz
   - Real-time data streaming via Serial
   
-  Author: Lambert Yang
+  Author: Lanqin Yang
   Version: 1.2 (Simplified)
 */
 

@@ -4,10 +4,10 @@
 [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.16%2B-orange.svg)](https://tensorflow.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-A comprehensive gesture recognition system for British Sign Language (BSL) digits 0-9 and static gestures using a DIY flexible sensor glove. This repo contains: sensor data collection firmware, training/evaluation code, and MCU-class on-device deployment code.
+A controlled six-participant engineering feasibility study of an isolated 11-class British Sign Language (BSL) vocabulary using a five-channel graphite-on-paper glove. This repository contains the pseudonymised sensor recordings, training and diagnostic sources, and archived embedded source files.
 
 ## Manuscript (under review, 2026)
-*Domain-Adversarial Light Gradient Boosting Machine for On-Device Sign Recognition with Graphite-on-Paper Sensors*  
+*Domain-Adversarial Light Gradient Boosting Machine for On-Device Recognition of Isolated Gestures from a Constrained BSL Vocabulary Using Graphite-on-Paper Sensors*
 Contact: ml23597@qmul.ac.uk
 
 ## 🚀 Features
@@ -16,8 +16,8 @@ Contact: ml23597@qmul.ac.uk
 - **Confidence-gated fusion:** prediction-margin gating to mitigate sensor drift and inter-subject variability
 - **Hardware closed-loop:** DIY 5-channel GoP glove + readout circuit + 50 Hz acquisition firmware
 - **Edge deployment:** model translated to pure C (m2cgen) and deployed on Arduino Nano 33 BLE (256 KB SRAM)
-- **Strict cross-subject evaluation:** LOSO Macro-F1 = 83.66%, ablation shows ~+6% gain from domain-adversarial module
-- **Real-time on-device inference:** <0.5 s end-to-end pipeline latency on Arduino-class MCU
+- **Cross-subject evaluation:** six held-out-subject folds, with original diagnostic results and provenance recorded separately.
+- **Deployment timing:** approximately 2.5 s per full recognition cycle, including two-second acquisition and less than 0.5 s of post-acquisition processing in the archived indoor, USB-connected setup.
 
 ## 🛠️ Quick Start
 
@@ -57,16 +57,17 @@ python run.py --model_type ADANN_LightGBM --loso --epochs 100 --n_trials 50
 
 ```
 
-### Supported Models
+### Recorded result sources
 
-| Model            | Best LOSO Macro-F1 | Key Features                                   |
-|------------------|-------------------|------------------------------------------------|
-| **ADANN_LightGBM** | **83.66%**        | Combines domain adaptation and boosting for top accuracy |
-| **ADANN**          | **77.12%**        | Domain adaptation for strong cross-subject generalization |
-| **Transformer**    | **74.99%**        | Fast training, suitable for Arduino deployment  |
-| **LightGBM**       | **74.17%**        | Lightweight, efficient, ideal for edge devices  |
-| **XGBoost**        | **74.79%**        | Gradient boosting, robust to overfitting        |
-| **1D_CNN**         | **73.45%**        | Deep learning baseline, effective for time series |
+| Source | Mean Macro-F1 | Mean accuracy | Status |
+|---|---:|---:|---|
+| Archived DA-LGBM confusion matrices | 0.8366 | 0.8530 | Archived counts; exact training-checkpoint correspondence remains open |
+| Five-seed offline diagnostic | 0.7931 | 0.8139 | Raw summary arithmetic verified |
+| Separate seed-810 gate audit | 0.7717 | 0.7909 | Independent diagnostic; includes the Static audit |
+
+These are separate result sources. They are not one reproduced training run.
+See [reproduction status](reproducibility/REPRODUCTION_STATUS.md).
+
 
 ## 📁 Project Structure
 
@@ -145,3 +146,18 @@ I welcome contributions! This project demonstrates:
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Inspect the reproducibility materials
+
+```bash
+python -m pip install -r reproducibility/requirements-audit.txt
+python scripts/export_reproducibility.py
+python scripts/verify_reproducibility.py
+```
+
+The check verifies dataset identity, exported split isolation, descriptor
+shape and raw diagnostic arithmetic. Training and physical-device profiling
+were not rerun by this material audit. Current split manifests use sorted
+filenames and are not claimed as recovered historical primary-run splits.
+The legacy hardware demo differs from the offline margin/Static gate; read
+[reproduction status](reproducibility/REPRODUCTION_STATUS.md) before reuse.

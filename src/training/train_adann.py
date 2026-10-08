@@ -25,6 +25,11 @@ import warnings
 warnings.filterwarnings('ignore')
 import os
 
+try:
+    from .feature_utils import extract_wavelet_energies
+except ImportError:
+    from src.training.feature_utils import extract_wavelet_energies
+
 
 class AdannModelWrapper:
     """包装器类，使PyTorch ADANN模型兼容TensorFlow/Keras风格的pipeline"""
@@ -229,17 +234,25 @@ class GradientReversalLayer(torch.autograd.Function):
 class AdversarialFeatureExtractor(nn.Module):
     """对抗特征提取器"""
     
-    def __init__(self, input_size=190, feature_size=64, n_gestures=11, n_subjects=6):
+    def __init__(
+        self,
+        input_size=190,
+        feature_size=64,
+        n_gestures=11,
+        n_subjects=6,
+        dropout=0.3,
+        classifier_dropout=0.2,
+    ):
         super(AdversarialFeatureExtractor, self).__init__()
         
         # 特征提取网络
         self.feature_extractor = nn.Sequential(
             nn.Linear(input_size, 256),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(dropout),
             nn.Linear(256, 128),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(dropout),
             nn.Linear(128, feature_size),
             nn.ReLU()
         )
@@ -248,7 +261,7 @@ class AdversarialFeatureExtractor(nn.Module):
         self.gesture_classifier = nn.Sequential(
             nn.Linear(feature_size, 32),
             nn.ReLU(),
-            nn.Dropout(0.2),
+            nn.Dropout(classifier_dropout),
             nn.Linear(32, n_gestures)
         )
         
@@ -256,7 +269,7 @@ class AdversarialFeatureExtractor(nn.Module):
         self.domain_classifier = nn.Sequential(
             nn.Linear(feature_size, 32),
             nn.ReLU(),
-            nn.Dropout(0.2),
+            nn.Dropout(classifier_dropout),
             nn.Linear(32, n_subjects)
         )
         
@@ -394,7 +407,7 @@ class EnhancedFeatureExtractor:
                 peak_factor = float(np.max(np.abs(channel_data)) / rms_val) if rms_val > 1e-10 else 0.0
 
                 # Coefficient of variation
-                coeff_var = float(std_val / mean_val) if abs(mean_val) > 1e-10 else 0.0
+                coeff_var = float(std_val / mean_val) if abs(mean_val) > 1e-6 else 0.0
 
                 features.extend([
                     spectral_centroid, dominant_freq, total_power, spectral_spread,
@@ -406,13 +419,7 @@ class EnhancedFeatureExtractor:
 
             # 小波特征 (8个)：不同时间尺度上分析信号的能量分布
             try:
-                from scipy.signal import cwt, ricker
-                scales = np.arange(1, 9)  # 8个尺度
-                coeffs = cwt(channel_data, ricker, scales)
-                for i in range(8):
-                    energy = float(np.sum(coeffs[i]**2))
-                    energy = 0.0 if (np.isnan(energy) or np.isinf(energy)) else energy
-                    features.append(energy)
+                features.extend(extract_wavelet_energies(channel_data))
             except Exception:
                 features.extend([0.0] * 8)
 

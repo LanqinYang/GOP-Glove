@@ -7,6 +7,11 @@ from scipy.stats import skew, kurtosis
 from sklearn.preprocessing import StandardScaler
 import scipy.signal as signal
 
+try:
+    from .feature_utils import extract_wavelet_energies
+except ImportError:
+    from src.training.feature_utils import extract_wavelet_energies
+
 # Constants
 N_FEATURES = 5
 N_CLASSES = 11
@@ -135,13 +140,7 @@ class XgboostModelCreator:
 
                 # 小波特征 (8个)：不同时间尺度上分析信号的能量分布
                 try:
-                    from scipy.signal import cwt, ricker
-                    scales = np.arange(1, 9)  # 8个尺度
-                    coeffs = cwt(channel_data, ricker, scales)
-                    for i in range(8):
-                        energy = float(np.sum(coeffs[i]**2))
-                        energy = 0.0 if (np.isnan(energy) or np.isinf(energy)) else energy
-                        sample_features.append(energy)
+                    sample_features.extend(extract_wavelet_energies(channel_data))
                 except Exception:
                     sample_features.extend([0.0] * 8)
 

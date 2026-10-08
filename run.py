@@ -5,6 +5,7 @@ BSL Gesture Recognition System - Main Entry Point
 
 import sys
 import argparse
+import os
 from pathlib import Path
 
 # Project root
@@ -17,6 +18,18 @@ def model_training(args):
     if args.model_type == '1D_CNN':
         from src.training.train_cnn1d import Cnn1dModelCreator
         model_creator = Cnn1dModelCreator()
+    elif args.model_type == 'DSCNN':
+        # Workaround for occasional tf-metal crashes with SeparableConv1D on macOS.
+        # Keep this limited to DSCNN so other model paths are unaffected.
+        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+        import tensorflow as tf
+        try:
+            tf.config.set_visible_devices([], 'GPU')
+        except Exception:
+            # In case devices are already initialized by external runtime state.
+            pass
+        from src.training.train_dscnn1d import Cnn1dModelCreator
+        model_creator = Cnn1dModelCreator()
     elif args.model_type == 'XGBoost':
         from src.training.train_xgboost import XgboostModelCreator
         model_creator = XgboostModelCreator()
@@ -26,6 +39,15 @@ def model_training(args):
     elif args.model_type == 'ADANN':
         from src.training.train_adann import AdannModelCreator
         model_creator = AdannModelCreator()
+    elif args.model_type == 'ADANN_GRL':
+        from src.training.train_adann_domain_compare import AdannDomainCompareModelCreator
+        model_creator = AdannDomainCompareModelCreator(default_method='grl')
+    elif args.model_type == 'ADANN_MMD':
+        from src.training.train_adann_domain_compare import AdannDomainCompareModelCreator
+        model_creator = AdannDomainCompareModelCreator(default_method='mmd')
+    elif args.model_type == 'ADANN_CORAL':
+        from src.training.train_adann_domain_compare import AdannDomainCompareModelCreator
+        model_creator = AdannDomainCompareModelCreator(default_method='coral')
     elif args.model_type == 'ADANN_LightGBM':
         from src.training.train_adann_lightgbm import AdannLightgbmModelCreator
         model_creator = AdannLightgbmModelCreator()
@@ -51,10 +73,15 @@ def main():
     parser.add_argument('--csv_dir', default='datasets/gesture_csv', help="Directory with gesture CSV files (using original data for best performance)")
     parser.add_argument('--output_dir', default='models/trained', help="Directory to save trained model artifacts")
     parser.add_argument('--model_type', required=True,
-                             choices=['1D_CNN', 'XGBoost', 'Transformer_Encoder', 'ADANN', 'ADANN_LightGBM', 'LightGBM'],
+                             choices=[
+                                 '1D_CNN', 'DSCNN', 'XGBoost', 'Transformer_Encoder', 'ADANN',
+                                 'ADANN_GRL', 'ADANN_MMD', 'ADANN_CORAL',
+                                 'ADANN_LightGBM', 'LightGBM'
+                             ],
                              help='Type of model to train')
     parser.add_argument('--epochs', type=int, default=100, help="Number of training epochs (for TF models)")
     parser.add_argument('--n_trials', type=int, default=50, help="Number of Optuna trials for hyperparameter optimization")
+    parser.add_argument('--fixed_hyperparams_path', type=str, default='', help="If set, skip Optuna and use these hyperparams JSON (for ADANN variants)")
     parser.add_argument('--arduino', action='store_true', 
                              help='Use Arduino optimization mode (smaller model, potentially lower accuracy)')
     parser.add_argument('--loso', action='store_true', help='Use Leave-One-Subject-Out (LOSO) cross-validation')
