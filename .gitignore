@@ -1,115 +1,34 @@
-# Python
+# Python and local environments
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Virtual Environment
-venv/
-env/
-ENV/
 .venv/
-.env/
+venv/
+.env
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Jupyter Notebook
-.ipynb_checkpoints/
-
-
-# Data files
-*.csv
-*.h5
-*.hdf5
-*.pickle
-*.pkl
-
-# Model files
+# Generated training and feature outputs
+outputs/
+logs/
+runs/
+*.log
 *.pth
 *.pt
 *.ckpt
-*.pb
-*.tflite
 *.h5
+*.tflite
+*.pkl
+*.pickle
+reproducibility/generated/*.npy
 
-# Logs and outputs
-logs/
-outputs/
-runs/
-*.log
-
-# Dataset directories
-datasets/raw/
-datasets/processed/
-datasets/cache/
-
-# Exception: track CSV files in datasets/gesture_csv/
-!datasets/gesture_csv/
-!datasets/gesture_csv/**/*.csv
-
-# OS generated files
+# Local editor and operating-system files
 .DS_Store
-.DS_Store?
 ._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
 
-# Arduino compiled files
+# Build artifacts
+build/
 *.hex
 *.elf
 *.map
-
-# Arduino model headers (keep .ino tracked)
-arduino/tinyml_inference/**/*.h
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-
-# Configuration files with sensitive data
-config/secrets.yaml
-.env.local 
-models/trained/ 
-
-# Keep only Arduino sketches (.ino) and the Arduino README tracked under tinyml_inference
-arduino/tinyml_inference/**
-!arduino/tinyml_inference/**/*.ino
-!arduino/tinyml_inference/README.md 
-
-# Also ignore any .txt artifacts under Arduino inference
-arduino/tinyml_inference/**/*.txt
-
-# Track Jupyter notebooks (*.ipynb) - no ignore rule needed; checkpoints are already ignored
-
-# Do not track latency benchmark artifacts
-src/test/latency_benchmark_test/A100/**
-src/test/latency_benchmark_test/CPU/**
-src/test/latency_benchmark_test/*.pdf
-src/test/latency_benchmark_test/*.png
-Report_Figure_Code/
-Archive/

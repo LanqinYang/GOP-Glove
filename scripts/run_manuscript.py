@@ -25,7 +25,6 @@ def parameters(model, fold, epochs):
             payload = json.loads((ROOT / path).read_text())
             params = payload.get('best_params', payload)
         else:
-            # Validation-only model search is available through run.py.
             raise ValueError(f'No saved parameter file for {model}, fold {fold}')
     params.update(protocol['augmentation'])
     params.pop('training_only', None)

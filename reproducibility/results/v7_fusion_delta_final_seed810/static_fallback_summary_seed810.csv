@@ -1,8 +1,0 @@
-metric,value
-n_samples,660.0
-gate_static_predictions,64.0
-gate_static_prediction_rate,0.09696969696969697
-fallback_static_cases,1.0
-fallback_static_rate,0.0015151515151515152
-nonstatic_true_to_static_pred,6.0
-nonstatic_true_to_static_pred_rate,0.00909090909090909
