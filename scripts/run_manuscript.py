@@ -82,8 +82,11 @@ def train(args):
             Xva_f, _ = creator.extract_and_scale_features(windows[va], scaler=scaler)
             Xte_f, _ = creator.extract_and_scale_features(windows[te], scaler=scaler)
             trained = creator.create_model(params, arduino_mode=False)
-            trained.fit(Xtr_f, ytr, validation_data=(Xva_f, labels[va]),
-                        epochs=args.epochs, verbose=0)
+            if model_type == 'XGBoost':
+                trained.fit(Xtr_f, ytr, eval_set=[(Xva_f, labels[va])], verbose=False)
+            else:
+                trained.fit(Xtr_f, ytr, validation_data=(Xva_f, labels[va]),
+                            epochs=args.epochs, verbose=0)
             values = np.asarray(trained.predict(Xte_f))
             predicted = values.argmax(axis=1) if values.ndim == 2 else values
         predicted = np.asarray(predicted, dtype=int)
