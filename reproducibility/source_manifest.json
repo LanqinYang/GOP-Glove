@@ -1,480 +1,160 @@
 {
-  "source_snapshot_date": "2026-10-08",
   "files": [
     {
-      "path": "run.py",
-      "sha256": "7bc880cb40dc127fe7d1bca2ad0e480dfcfd5cada456928bf00410bd42969b35",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "configs/config.yaml",
-      "sha256": "f03ef1fe70ed35adc1b120d40a7de1404fc44544fff74eaed3451829da2116d3",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "src/test/fnb58_power_logger.py",
-      "sha256": "874549b235def96b408e7f485d19f591358c2b0c76bed598332fb9434dde79a1",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "src/test/da_lgbm_power_cycle_runner.py",
-      "sha256": "c24618f53c61e372eebe28945f5452cf5606edd0d29d614f0548bd4590acc3c0",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "src/test/hardware_disturbance_measurement.py",
-      "sha256": "922490a69048ae100c51b3a141a98f4979ca150c5ca5f6d429a9aaa066908010",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "src/training/train_adann.py",
-      "sha256": "b343466a47ac1ffed7128443d04590157956cdc426ef5d6de55e0f2bb90df160",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "src/training/train_dscnn1d.py",
-      "sha256": "b730df347550082388662e1ae032b6350dd014a998058d142087d56ca169581e",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "src/training/train_adann_lightgbm.py",
-      "sha256": "5eba1a490b5de322e5c98f2c94d2c7e4398e61344c43dd9472ee7b1862aeb1ed",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "src/training/train_cnn1d.py",
-      "sha256": "c65a8642d28172e79b9f879e2d1309133b8505955bf720c86ec19a1b8d9b78dc",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "src/training/pipeline.py",
-      "sha256": "853e3ba2752d715aebf12c07bd96381c9305b1df3dd4e2f340c3125edb3dbb8e",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "src/training/train_adann_domain_compare.py",
-      "sha256": "c677b44554ea1c40d0f3ce44a65d0fbf215b94ffff336f68ba099aa5625c2dd0",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "src/training/feature_utils.py",
-      "sha256": "247cfc2687a3fe7737c6c4fdd6bb802c5b480ca8636904ff0544c36f2234110a",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "src/training/train_lightgbm.py",
-      "sha256": "dcfc4ebfc6fbe8db9633666df3382aa4de1bdacc593c918f5c5407a724326e0a",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "src/training/train_transformer.py",
-      "sha256": "bbd5e401b2d7be49dd252824852cbea86ebabce0333d9db8fd4e2c1b11c6dbc3",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "src/training/train_xgboost.py",
-      "sha256": "589895f903efd59facc8a6370bb0c703f845f9d9b5ad3273535a877facfb3e90",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "path": "src/data/data_collector.py",
+      "sha256": "06c4aeb567a586ea632d64b56375540db3f3c08e3e26cb9ef23ce3f249570cb5"
     },
     {
       "path": "src/evaluation/__init__.py",
-      "sha256": "0b61b66f4067eaafadd39ddd3cb8e981e783f57a9752a154650a2b34aaadc931",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "sha256": "0b61b66f4067eaafadd39ddd3cb8e981e783f57a9752a154650a2b34aaadc931"
     },
     {
       "path": "src/evaluation/evaluator.py",
-      "sha256": "05ec9e69bba383899b8b1ac2dca36c50bb7e9031e0a84a8c34cbf586c0407912",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "sha256": "05ec9e69bba383899b8b1ac2dca36c50bb7e9031e0a84a8c34cbf586c0407912"
     },
     {
-      "path": "src/data/data_collector.py",
-      "sha256": "06c4aeb567a586ea632d64b56375540db3f3c08e3e26cb9ef23ce3f249570cb5",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "path": "src/test/da_lgbm_power_cycle_runner.py",
+      "sha256": "c24618f53c61e372eebe28945f5452cf5606edd0d29d614f0548bd4590acc3c0"
+    },
+    {
+      "path": "src/test/fnb58_power_logger.py",
+      "sha256": "874549b235def96b408e7f485d19f591358c2b0c76bed598332fb9434dde79a1"
+    },
+    {
+      "path": "src/test/hardware_disturbance_measurement.py",
+      "sha256": "922490a69048ae100c51b3a141a98f4979ca150c5ca5f6d429a9aaa066908010"
+    },
+    {
+      "path": "src/training/feature_utils.py",
+      "sha256": "247cfc2687a3fe7737c6c4fdd6bb802c5b480ca8636904ff0544c36f2234110a"
+    },
+    {
+      "path": "src/training/manuscript_features.py",
+      "sha256": "920fcb9b32b7cd48f925a402e2afc884b88b85b435aad205cdff67b1f1ba573c"
+    },
+    {
+      "path": "src/training/manuscript_gate.py",
+      "sha256": "73c0d8e03c5b2ac8448f3cc8406f9a48afd527664932132081c9f0fade8a347b"
+    },
+    {
+      "path": "src/training/pipeline.py",
+      "sha256": "3106b3b9cf4ca6df2032070808540e80afe898974a8049b49fda031d7b0efa71"
+    },
+    {
+      "path": "src/training/train_adann.py",
+      "sha256": "be8c41e9221e8d38614b0d258fb94ad8cf8be42ae3a7f97bb595ae45a9e8f60f"
+    },
+    {
+      "path": "src/training/train_adann_domain_compare.py",
+      "sha256": "bbcfa6a7f1236c27a6fde7e4ef10505ef43a7dd2b36f8ee662ed825c72badcfa"
+    },
+    {
+      "path": "src/training/train_adann_lightgbm.py",
+      "sha256": "da733513e1b66c4802b4f59430d9c4a0bba649e1384dd7d36702b14032cdcd27"
+    },
+    {
+      "path": "src/training/train_cnn1d.py",
+      "sha256": "c65a8642d28172e79b9f879e2d1309133b8505955bf720c86ec19a1b8d9b78dc"
+    },
+    {
+      "path": "src/training/train_dscnn1d.py",
+      "sha256": "b730df347550082388662e1ae032b6350dd014a998058d142087d56ca169581e"
+    },
+    {
+      "path": "src/training/train_lightgbm.py",
+      "sha256": "c11607aa5645d588ce362dad1bcd75c8994bb126b6b6b94b7af1f8d5c8c760cd"
+    },
+    {
+      "path": "src/training/train_transformer.py",
+      "sha256": "bbd5e401b2d7be49dd252824852cbea86ebabce0333d9db8fd4e2c1b11c6dbc3"
+    },
+    {
+      "path": "src/training/train_xgboost.py",
+      "sha256": "c1d81827b55b9b6969589153aeb2b9251cbd4998a409b29f6a16e0e031451f21"
+    },
+    {
+      "path": "scripts/export_reproducibility.py",
+      "sha256": "c3d096ebf2e3b9dcdca9e9fb5c0b2dcb199a8e7c6aee6d81fe748caba6cea99d"
+    },
+    {
+      "path": "scripts/run_frozen_robustness.py",
+      "sha256": "f437c4eae4a046b79ecc72f24ba44ab896acc6c2fb20d765b76c2d3a5622900e"
+    },
+    {
+      "path": "scripts/run_manuscript.py",
+      "sha256": "8ffd743345210c048ad7a6592036b8e0fd41687c2a24bc6c5ebe81b5e4df4445"
+    },
+    {
+      "path": "scripts/run_robustness.py",
+      "sha256": "22f4668699730e22632a2bcd38552789729769f298a38171f49f85fc08fcc868"
+    },
+    {
+      "path": "scripts/verify_reproducibility.py",
+      "sha256": "c2a9addb9265ed86041b986f18e248dbe43d7aafca138e4fdd2e37cff5ff73fa"
     },
     {
       "path": "experiments/adann_grl_loso_stability.py",
-      "sha256": "55e8ca1760acfc4d03527c33c2a68d6a173244c99c13629886a203a11f284850",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "sha256": "55e8ca1760acfc4d03527c33c2a68d6a173244c99c13629886a203a11f284850"
     },
     {
       "path": "experiments/adann_tsne_feature_space.py",
-      "sha256": "02106700c464180f37c411f1c9f9a675d30f271e9fcfb4f96174b26a3c1ffe9f",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "sha256": "02106700c464180f37c411f1c9f9a675d30f271e9fcfb4f96174b26a3c1ffe9f"
     },
     {
       "path": "experiments/augmentation_probability_inner_validation.py",
-      "sha256": "c8806bb4968745f7b8014c67d29768ec12cd2b84bb3d2aed5d7e1784c7598cc1",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "sha256": "c8806bb4968745f7b8014c67d29768ec12cd2b84bb3d2aed5d7e1784c7598cc1"
     },
     {
       "path": "experiments/augmentation_probability_sweep.py",
-      "sha256": "a4792e830626608aa0378e44b6ef75544c5fef47dae82820c53aede2fe0ffcc5",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "experiments/da_lgbm_ablation_loso.py",
-      "sha256": "7c41b4a90061ac9754752b8bdff3ce169a1e2828acbb7605f0d6072edce558e0",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "experiments/da_lgbm_seed_ensemble_loso.py",
-      "sha256": "58ff3ce442237b5528165aac61c04dee9f4ae6f663a39418de3961ba65e76293",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "experiments/da_lgbm_seed_stability_loso.py",
-      "sha256": "4c013513bfd0e7ac3e65448df5f1b1742e860ad9efe1fbc064f405784f3c8a8d",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "sha256": "a4792e830626608aa0378e44b6ef75544c5fef47dae82820c53aede2fe0ffcc5"
     },
     {
       "path": "experiments/awgn_robustness.py",
-      "sha256": "69f5369cd604d99f679f084522b11a6cff63bb882d03b6f71ae8cd3e35f7a4ce",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "sha256": "71c8f714090955f3cf4f57145decbb67db48aa7b14788f25ebbe576addbf385f"
     },
     {
-      "path": "experiments/sampling_jitter_robustness.py",
-      "sha256": "73563216c8f453046eb9a23c87e2aa6b5bfa7510f041bf2805e577be1b8338fa",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "path": "experiments/da_lgbm_ablation_loso.py",
+      "sha256": "7c41b4a90061ac9754752b8bdff3ce169a1e2828acbb7605f0d6072edce558e0"
     },
     {
-      "path": "experiments/sensor_drift_robustness.py",
-      "sha256": "b45ffa86c660770e0f872a4d51c1e6b0840c42fd6d13da4270a6fccdaf0611f7",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "path": "experiments/da_lgbm_seed_ensemble_loso.py",
+      "sha256": "58ff3ce442237b5528165aac61c04dee9f4ae6f663a39418de3961ba65e76293"
     },
     {
-      "path": "experiments/recompute_fusion_delta_table.py",
-      "sha256": "f0b6bc40dbb0d76a5825a9ef854b66d57cfa93574b9943ab08c526a33285e4f5",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "path": "experiments/da_lgbm_seed_stability_loso.py",
+      "sha256": "a83d2c9a53f6e51b6c4f15088ab465672c06b4c2496044b1d7174874dd9addb8"
     },
     {
       "path": "experiments/param_probe_fusion_alternatives.py",
-      "sha256": "a68d4a3039652198c2aa3172b33baea4e655297c95602787a6da0b8b24b39562",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "sha256": "a68d4a3039652198c2aa3172b33baea4e655297c95602787a6da0b8b24b39562"
     },
     {
-      "path": "arduino/data_collection/sensor_data_collector/sensor_data_collector.ino",
-      "sha256": "73bc51ff91032f374403390264a167e5b1016024b889436b080dcc46254ca707",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "path": "experiments/recompute_fusion_delta_table.py",
+      "sha256": "f0b6bc40dbb0d76a5825a9ef854b66d57cfa93574b9943ab08c526a33285e4f5"
     },
     {
-      "path": "arduino/hardware_test/glove_signal_check/glove_signal_check.ino",
-      "sha256": "087649f52e6cae0d04910d1a89c2d77887a874e2bd71257384697b862a612f5f",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "path": "experiments/sampling_jitter_robustness.py",
+      "sha256": "73563216c8f453046eb9a23c87e2aa6b5bfa7510f041bf2805e577be1b8338fa"
     },
     {
-      "path": "arduino/hardware_test/hardware_disturbance_logger/hardware_disturbance_logger.ino",
-      "sha256": "e1b7c1eb96956063d7e4c408349131ab73e03078a6a8f59c5bfb51e17948b107",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "path": "experiments/sensor_drift_robustness.py",
+      "sha256": "b45ffa86c660770e0f872a4d51c1e6b0840c42fd6d13da4270a6fccdaf0611f7"
     },
     {
-      "path": "arduino/tinyml_inference/ADANN_LightGBM_inference/BSL_Gesture_Demo/BSL_Gesture_Demo.ino",
-      "sha256": "c9c95a364f91d01a9631a04d6ee15d7d65866d813b6b0c19b6ccea67f4844706",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "path": "configs/baseline_configs.json",
+      "sha256": "2cbaa9608db26b67c6db898d05350d39f50e5809a75e651eb69409de377b8d8f"
     },
     {
-      "path": "arduino/tinyml_inference/ADANN_LightGBM_inference/BSL_Gesture_Demo/bsl_model_LightGBM.h",
-      "sha256": "194760be1d256a07744faf097b85bfb0213694b1ae43aedd4032557f3065d4c4",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "path": "configs/config.yaml",
+      "sha256": "3eb3031035517d60c1d79306981ed7e966f12deb306696732849e3ee2cd29f89"
     },
     {
-      "path": "arduino/tinyml_inference/ADANN_LightGBM_inference/BSL_Gesture_Demo/bsl_model_ADANN.h",
-      "sha256": "ba49dbe7346dac0192790af99f03e59e5e2b39b6e47587ef2fc0549a8523c3a6",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
+      "path": "configs/da_lgbm_loso.json",
+      "sha256": "405c21d0dbafee70cbdaf3c5f0648936ec29889c8b049abf5565a8addef94d30"
     },
     {
-      "path": "arduino/tinyml_inference/DSCNN_inference/bsl_model_DSCNN.h",
-      "sha256": "2d3a87ec4d762a01e07993311a08950254d8aa13413e98754b29a3024c009b2f",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "arduino/tinyml_inference/DSCNN_inference/Latency_test/bsl_model_DSCNN.h",
-      "sha256": "2d3a87ec4d762a01e07993311a08950254d8aa13413e98754b29a3024c009b2f",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "arduino/tinyml_inference/DSCNN_inference/Latency_test/Latency_test.ino",
-      "sha256": "c43d0aa6e7fa13370de349d1e384d787dc15fa8e3771250584854a2fd50722b7",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "arduino/tinyml_inference/DSCNN_inference/Latency_loso/bsl_model_DSCNN.h",
-      "sha256": "2d3a87ec4d762a01e07993311a08950254d8aa13413e98754b29a3024c009b2f",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "arduino/tinyml_inference/DSCNN_inference/Latency_standard/bsl_model_DSCNN.h",
-      "sha256": "61116ed91f6a5fcb1cbe208f66e2ad9ca5b398f678b233216370d83095137184",
-      "role": "source_snapshot_not_claimed_as_primary_run_checkpoint"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_1_20260428_223334.json",
-      "sha256": "437b279df0f1b4553f7a27a938768bb5a45db8fb044de68c4b95a1d2bdd91525",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_2_20260428_224412.json",
-      "sha256": "446d7da477edb6d4739d219c1f7b40773305938ef652eff31a01a666022e0e5d",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_3_20260428_225432.json",
-      "sha256": "75a6d17003ac43ffcf990167c5b7cd6898d288f86746555752a849b845f15e72",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_4_20260428_230508.json",
-      "sha256": "7676b62430401c0e672ad23071754117ca20f03b5ee1e059583f72e919ad236e",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_5_20260428_231610.json",
-      "sha256": "b1b01fa646ea2c98787b6d61a6ca539116e7e17e88a361f5c5ff89275e18b01f",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_6_20260428_232700.json",
-      "sha256": "38f86db3e4076f06faca9c2e89cdf8249f284dd16fcb02f3317e83c4b42b510a",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_1_20250822_120036.json",
-      "sha256": "6cab9dcdfb3fa95bb4ba8f8be80860b90f1a6ac5d2a45e732ee0153a028b84fa",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_2_20250822_122029.json",
-      "sha256": "22363e45e7389210306d57e58f8aac5618bea5810d7cc81509352511ac62c08c",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_3_20250822_123927.json",
-      "sha256": "badaad6c084d71d2e29b0363c292db3c64c92324a3b3f7a9cab19d680fe20f1c",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_4_20250822_125622.json",
-      "sha256": "a80f8c6ad44bfcfe85e6eb88c92a07e92523dca13175ff5c4ab00d86581287ec",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_5_20250822_131200.json",
-      "sha256": "8d0ea38cc3b9cc6ceff38b786e0ca1ac46316e43ff00ab73365e1151557c2ba7",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_6_20250822_132658.json",
-      "sha256": "a4775eb89bad1e83d75cec57cb7d6de9464e3a2a8030e46b06ba35dc8067f9bc",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_1_20260313_113714.json",
-      "sha256": "b45cb34089b983ccccbbfba3fa90074e387bf7cc16d43f85cd22808d6d27766c",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_2_20250822_142733.json",
-      "sha256": "fb4227ee1227af689e158c4f4d6508933b6d51a51c1ac9fb6c282a33d4f89d8d",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_3_20250822_142852.json",
-      "sha256": "1672b926b158eca72f85338f16cb2ec4c4bfbbecc1a62a14c5e8d0c70b8d065d",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_4_20250822_142943.json",
-      "sha256": "55b5aa8cb4249b0c263f28184da5143abd463afca9a0414e0cad202cdb4c08ee",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_5_20250822_143052.json",
-      "sha256": "439ab2a9ebcbd749815e8efce24b3ab4538f6748676dd2ecb00349ea12ea8f0b",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_6_20250822_143154.json",
-      "sha256": "db92d41aba14ad78a0ec936fd54cec357bf5dd10ce9588638760ccb6bd4865fa",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_1_20260428_223334.json",
-      "sha256": "437b279df0f1b4553f7a27a938768bb5a45db8fb044de68c4b95a1d2bdd91525",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_2_20260428_224412.json",
-      "sha256": "446d7da477edb6d4739d219c1f7b40773305938ef652eff31a01a666022e0e5d",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_3_20260428_225432.json",
-      "sha256": "75a6d17003ac43ffcf990167c5b7cd6898d288f86746555752a849b845f15e72",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_4_20260428_230508.json",
-      "sha256": "7676b62430401c0e672ad23071754117ca20f03b5ee1e059583f72e919ad236e",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_5_20260428_231610.json",
-      "sha256": "b1b01fa646ea2c98787b6d61a6ca539116e7e17e88a361f5c5ff89275e18b01f",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_6_20260428_232700.json",
-      "sha256": "38f86db3e4076f06faca9c2e89cdf8249f284dd16fcb02f3317e83c4b42b510a",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_1_20250822_120036.json",
-      "sha256": "6cab9dcdfb3fa95bb4ba8f8be80860b90f1a6ac5d2a45e732ee0153a028b84fa",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_2_20250822_122029.json",
-      "sha256": "22363e45e7389210306d57e58f8aac5618bea5810d7cc81509352511ac62c08c",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_3_20250822_123927.json",
-      "sha256": "badaad6c084d71d2e29b0363c292db3c64c92324a3b3f7a9cab19d680fe20f1c",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_4_20250822_125622.json",
-      "sha256": "a80f8c6ad44bfcfe85e6eb88c92a07e92523dca13175ff5c4ab00d86581287ec",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_5_20250822_131200.json",
-      "sha256": "8d0ea38cc3b9cc6ceff38b786e0ca1ac46316e43ff00ab73365e1151557c2ba7",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_6_20250822_132658.json",
-      "sha256": "a4775eb89bad1e83d75cec57cb7d6de9464e3a2a8030e46b06ba35dc8067f9bc",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_1_20260313_113714.json",
-      "sha256": "b45cb34089b983ccccbbfba3fa90074e387bf7cc16d43f85cd22808d6d27766c",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_2_20250822_142733.json",
-      "sha256": "fb4227ee1227af689e158c4f4d6508933b6d51a51c1ac9fb6c282a33d4f89d8d",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_3_20250822_142852.json",
-      "sha256": "1672b926b158eca72f85338f16cb2ec4c4bfbbecc1a62a14c5e8d0c70b8d065d",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_4_20250822_142943.json",
-      "sha256": "55b5aa8cb4249b0c263f28184da5143abd463afca9a0414e0cad202cdb4c08ee",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_5_20250822_143052.json",
-      "sha256": "439ab2a9ebcbd749815e8efce24b3ab4538f6748676dd2ecb00349ea12ea8f0b",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_6_20250822_143154.json",
-      "sha256": "db92d41aba14ad78a0ec936fd54cec357bf5dd10ce9588638760ccb6bd4865fa",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_1_20260428_223334.json",
-      "sha256": "437b279df0f1b4553f7a27a938768bb5a45db8fb044de68c4b95a1d2bdd91525",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_2_20260428_224412.json",
-      "sha256": "446d7da477edb6d4739d219c1f7b40773305938ef652eff31a01a666022e0e5d",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_3_20260428_225432.json",
-      "sha256": "75a6d17003ac43ffcf990167c5b7cd6898d288f86746555752a849b845f15e72",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_4_20260428_230508.json",
-      "sha256": "7676b62430401c0e672ad23071754117ca20f03b5ee1e059583f72e919ad236e",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_5_20260428_231610.json",
-      "sha256": "b1b01fa646ea2c98787b6d61a6ca539116e7e17e88a361f5c5ff89275e18b01f",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN_LightGBM/loso/full/best_params_ADANN_LightGBM_loso_full_fold_6_20260428_232700.json",
-      "sha256": "38f86db3e4076f06faca9c2e89cdf8249f284dd16fcb02f3317e83c4b42b510a",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_1_20250822_120036.json",
-      "sha256": "6cab9dcdfb3fa95bb4ba8f8be80860b90f1a6ac5d2a45e732ee0153a028b84fa",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_2_20250822_122029.json",
-      "sha256": "22363e45e7389210306d57e58f8aac5618bea5810d7cc81509352511ac62c08c",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_3_20250822_123927.json",
-      "sha256": "badaad6c084d71d2e29b0363c292db3c64c92324a3b3f7a9cab19d680fe20f1c",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_4_20250822_125622.json",
-      "sha256": "a80f8c6ad44bfcfe85e6eb88c92a07e92523dca13175ff5c4ab00d86581287ec",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_5_20250822_131200.json",
-      "sha256": "8d0ea38cc3b9cc6ceff38b786e0ca1ac46316e43ff00ab73365e1151557c2ba7",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_6_20250822_132658.json",
-      "sha256": "a4775eb89bad1e83d75cec57cb7d6de9464e3a2a8030e46b06ba35dc8067f9bc",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_1_20260313_113714.json",
-      "sha256": "b45cb34089b983ccccbbfba3fa90074e387bf7cc16d43f85cd22808d6d27766c",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_2_20250822_142733.json",
-      "sha256": "fb4227ee1227af689e158c4f4d6508933b6d51a51c1ac9fb6c282a33d4f89d8d",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_3_20250822_142852.json",
-      "sha256": "1672b926b158eca72f85338f16cb2ec4c4bfbbecc1a62a14c5e8d0c70b8d065d",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_4_20250822_142943.json",
-      "sha256": "55b5aa8cb4249b0c263f28184da5143abd463afca9a0414e0cad202cdb4c08ee",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_5_20250822_143052.json",
-      "sha256": "439ab2a9ebcbd749815e8efce24b3ab4538f6748676dd2ecb00349ea12ea8f0b",
-      "role": "parameters_used_by_independent_robustness_rerun"
-    },
-    {
-      "path": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_6_20250822_143154.json",
-      "sha256": "db92d41aba14ad78a0ec936fd54cec357bf5dd10ce9588638760ccb6bd4865fa",
-      "role": "parameters_used_by_independent_robustness_rerun"
+      "path": "configs/manuscript_protocol.json",
+      "sha256": "7ac5fe942e89936f75ca7bbe9c5ca7bd5a08748cbccb46b565853190ef7be6d2"
     }
   ]
 }

@@ -77,7 +77,7 @@ def set_global_seed(seed=SEED):
 # --- Data Loading ---
 def load_data(csv_dir):
     """Load and preprocess data, extracting subject IDs for LOSO."""
-    csv_files = glob.glob(os.path.join(csv_dir, "*.csv"))
+    csv_files = sorted(glob.glob(os.path.join(csv_dir, "*.csv")))
     all_data, all_labels, all_subjects = [], [], []
     
     for csv_file in csv_files:
@@ -157,7 +157,7 @@ def augment_data(X_train, y_train, augment_params=None):
             'jitter_noise_level': config['jitter_noise_level'],
             'time_warp_max_speed': config['time_warp_max_speed'],
             'scale_range': config['scale_range'],
-            'augment_prob': 0.5  # Default probability
+            'augment_prob': config.get('augment_prob', 0.3)
         }
     
     print(f"🚀 Augmenting data... (Factor: {augment_params['augment_factor']}x)")
@@ -167,7 +167,7 @@ def augment_data(X_train, y_train, augment_params=None):
     y_to_augment = np.repeat(y_train, augment_params['augment_factor'], axis=0)
 
     # 1. Define augmenters from the library (tsaug)
-    augment_prob = augment_params.get('augment_prob', 0.5)
+    augment_prob = augment_params.get('augment_prob', 0.3)
     augmenter = (
         AddNoise(scale=augment_params['jitter_noise_level']) @ augment_prob
         + TimeWarp(n_speed_change=5, max_speed_ratio=augment_params['time_warp_max_speed']) @ augment_prob

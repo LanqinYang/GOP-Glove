@@ -6,6 +6,7 @@
 #include <math.h>
 #include "bsl_model_ADANN.h"
 #include "bsl_model_LightGBM.h"
+#include "confidence_gate.h"
 
 // ===== Config =====
 #define FE_CH   5
@@ -19,8 +20,9 @@
 #define POWER_MARKERS 1        // 1=print machine-readable phase markers
 
 // 部署参数（仅作为信息输出，不改变当前触发流程）
-#define STRIDE_SAMPLES   10
-#define DECISION_RATE_HZ 20
+#define ACQUISITION_SECONDS 2
+#define ADANN_THRESHOLD 0.5f
+#define LGBM_THRESHOLD 0.5f
 
 enum FusionMode { WEIGHTED=0, CONF_GATE=1 };
 
@@ -97,8 +99,7 @@ static void print_summary(){
   if(M.N==0){ Serial.println("No runs yet."); return; }
   Serial.println("\n==== Performance Summary ====");
   Serial.print("runs="); Serial.print(M.N);
-  Serial.print("  stride="); Serial.print(STRIDE_SAMPLES);
-  Serial.print("  decision_rate="); Serial.print(DECISION_RATE_HZ); Serial.println(" Hz");
+  Serial.print("  acquisition="); Serial.print(ACQUISITION_SECONDS); Serial.println(" s");
 
   auto P3=[&](const char* name, uint32_t* arr){
     uint32_t md = percentile_u32(arr,M.N,50.f);
@@ -188,28 +189,29 @@ static float percentile(float *buf, int n, float p){
   float w = pos - i0; return (1.f-w)*tmp[i0] + w*tmp[i1];
 }
 
-// ---------- Time-domain 18 (DC-robust) ----------
+// ---------- Time-domain 18 ----------
 static void time_domain_18(const float *x, int n, float *o){
   static float xs[FE_WIN];
   float mu=0.f; for(int i=0;i<n;++i) mu += x[i]; mu /= n;     // 原始均值（输出mean用它）
-  for(int i=0;i<n;++i) xs[i]=x[i]-mu;                         // 其它统计用去DC
+  for(int i=0;i<n;++i) xs[i]=x[i];
 
   float sum2=0, mn=1e30f, mx=-1e30f;
   for(int i=0;i<n;++i){ float v=xs[i]; sum2+=v*v; if(v<mn) mn=v; if(v>mx) mx=v; }
-  float var=sum2/n; if(var<0)var=0; float std=sqrtf(var);
+  float var=0.f; for(int i=0;i<n;++i){ float d=xs[i]-mu; var+=d*d; }
+  var/=n; float std=sqrtf(var);
 
   static float tmp[FE_WIN]; for(int i=0;i<n;++i) tmp[i]=xs[i];
   for(int i=1;i<n;++i){ float k=tmp[i]; int j=i-1; while(j>=0 && tmp[j]>k){ tmp[j+1]=tmp[j]; --j;} tmp[j+1]=k; }
   float median=(n&1)? tmp[n/2] : 0.5f*(tmp[n/2-1]+tmp[n/2]);
 
-  float m3=0,m4=0; if(std>1e-12f){ for(int i=0;i<n;++i){ float d=xs[i]; float d2=d*d; m3+=d2*d; m4+=d2*d2; } m3/=n; m4/=n; }
+  float m3=0,m4=0; if(std>1e-12f){ for(int i=0;i<n;++i){ float d=xs[i]-mu; float d2=d*d; m3+=d2*d; m4+=d2*d2; } m3/=n; m4/=n; }
   float skew=(std>1e-12f)? (m3/(std*std*std)) : 0.f;
   float kurt=(std>1e-12f)? (m4/(var*var)-3.f) : 0.f;
   if(!isfinite(skew))skew=0; if(!isfinite(kurt))kurt=0;
 
   float rms=sqrtf(sum2/n);
   float mav=0; for(int i=0;i<n;++i) mav+=fabsf(xs[i]); mav/=n;
-  float wl=0; int zc=0; for(int i=1;i<n;++i){ wl+=fabsf(xs[i]-xs[i-1]); if((xs[i]>0)!=(xs[i-1]>0)) ++zc; }
+  float wl=0; int zc=0; for(int i=1;i<n;++i){ wl+=fabsf(xs[i]-xs[i-1]); if(sgnf(xs[i])!=sgnf(xs[i-1])) ++zc; }
   int ssc=0; for(int i=1;i<n-1;++i){ if((xs[i]>xs[i-1]&&xs[i]>xs[i+1])||(xs[i]<xs[i-1]&&xs[i]<xs[i+1])) ++ssc; }
 
   float q1=percentile(tmp,n,25.f); for(int i=0;i<n;++i) tmp[i]=xs[i];
@@ -290,15 +292,15 @@ static float ricker_normed_sample(int t, int M, float a){
 static void cwt_ricker_energy8(const float *x, int n, float *o){
   for(int ia=1; ia<=8; ++ia){
     float a = (float)ia;
-    int M = (int)ceilf(10.0f * a); if (M < 3) M = 3; if (!(M & 1)) M += 1;
+    int M = min((int)(10.0f * a), n);
     static float w[FE_WIN];
     for(int t=0; t<M; ++t) w[t] = ricker_normed_sample(t, M, a);
     float e = 0.f;
     for(int t=0; t<n; ++t){
-      float acc = 0.f; int mid=(M-1)/2;
-      for(int k=-mid; k<=mid; ++k){
-        int xi = t + k, wi = k + mid;
-        if (xi>=0 && xi<n) acc += x[xi] * w[wi];
+      float acc = 0.f;
+      for(int k=0; k<M; ++k){
+        int xi = t + k - M/2;
+        if (xi>=0 && xi<n) acc += x[xi] * w[k];
       }
       e += acc * acc;
     }
@@ -394,11 +396,8 @@ static inline int fuse_predict(const float* x190, float wA, float wL, float gate
   float pf[11];
   if (mode==WEIGHTED){ for(int i=0;i<11;++i) pf[i]=wA*pa[i]+wL*pl[i]; }
   else{
-    float ma=pa[0], ml=pl[0]; int ia=0, il=0;
-    for(int i=1;i<11;++i){ if(pa[i]>ma){ma=pa[i]; ia=i;} if(pl[i]>ml){ml=pl[i]; il=i;} }
-    if (ma>=gate && ma>=ml)      for(int i=0;i<11;++i) pf[i]=pa[i];
-    else if (ml>=gate)           for(int i=0;i<11;++i) pf[i]=pl[i];
-    else                         for(int i=0;i<11;++i) pf[i]=0.5f*(pa[i]+pl[i]);
+    GateDecision decision = manuscript_gate(pa, pl, ADANN_THRESHOLD, LGBM_THRESHOLD);
+    for(int i=0;i<11;++i) pf[i] = decision.branch==0 ? pa[i] : (decision.branch==1 ? pl[i] : (i==10 ? 1.0f : 0.0f));
   }
   float s=0; for(int i=0;i<11;++i) s+=pf[i]; if(s>0){ float inv=1.f/s; for(int i=0;i<11;++i) pf[i]*=inv; }
   int pred=0; float best=pf[0]; for(int i=1;i<11;++i){ if(pf[i]>best){best=pf[i]; pred=i;} }
@@ -420,8 +419,7 @@ void setup(){
   Serial.begin(115200); while(!Serial);
   for(int c=0;c<FE_CH;++c) pinMode(PIN_CH[c], INPUT);
   Serial.println("BSL Fusion Ready.");
-  Serial.print("stride="); Serial.print(STRIDE_SAMPLES);
-  Serial.print(", decision_rate="); Serial.print(DECISION_RATE_HZ); Serial.println(" Hz");
+  Serial.print("acquisition="); Serial.print(ACQUISITION_SECONDS); Serial.println(" s");
 }
 
 void loop(){
@@ -450,7 +448,7 @@ void loop(){
   phase_marker("fusion", "start");
   uint32_t gate_us=0; bool disagree=false;
   float probs[11];
-  int pred = fuse_predict(feats, 0.5f, 0.5f, 0.60f, CONF_GATE, probs, 0, 0, gate_us, disagree);
+  int pred = fuse_predict(feats, 0.5f, 0.5f, 0.5f, CONF_GATE, probs, 0, 0, gate_us, disagree);
   phase_marker("fusion", "end");
 
   // 4) uart_tx（输出）

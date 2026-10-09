@@ -1,4 +1,4 @@
-"""Exact legacy ADANN descriptor implementation; see REPRODUCTION_STATUS.md."""
+"""Shared 190-dimensional descriptor for the manuscript protocol."""
 
 import numpy as np
 from scipy import signal
@@ -9,11 +9,15 @@ from src.training.feature_utils import extract_wavelet_energies
 class EnhancedFeatureExtractor:
     """增强特征提取器"""
     
-    def __init__(self):
+    def __init__(self, sampling_rate=50.0):
         self.scaler = StandardScaler()
+        self.sampling_rate = float(sampling_rate)
         
     def extract_comprehensive_features(self, sample):
         """提取综合特征集（数值稳定版，避免NaN/Inf）"""
+        sample = np.asarray(sample, dtype=np.float64)
+        if sample.shape != (100, 5) or not np.isfinite(sample).all():
+            raise ValueError("Expected a finite 100 by 5 acquisition window")
         features = []
 
         for ch in range(sample.shape[1]):
@@ -91,7 +95,7 @@ class EnhancedFeatureExtractor:
 
             # 频域特征 (12个)：spectral_centroid, dominant_freq, total_power, spectral_spread, spectral_entropy, low_freq_power, mid_freq_power, high_freq_power, 2nd_moment, 3rd_moment, peak_factor, coeff_var
             try:
-                freqs, psd = signal.periodogram(channel_data, fs=250)
+                freqs, psd = signal.periodogram(channel_data, fs=self.sampling_rate)
                 total_power = float(np.sum(psd))
                 
                 if total_power > 1e-12:
@@ -119,7 +123,7 @@ class EnhancedFeatureExtractor:
                 peak_factor = float(np.max(np.abs(channel_data)) / rms_val) if rms_val > 1e-10 else 0.0
 
                 # Coefficient of variation
-                coeff_var = float(std_val / mean_val) if abs(mean_val) > 1e-6 else 0.0
+                coeff_var = float(std_val / mean_val) if abs(mean_val) > 1e-10 else 0.0
 
                 features.extend([
                     spectral_centroid, dominant_freq, total_power, spectral_spread,

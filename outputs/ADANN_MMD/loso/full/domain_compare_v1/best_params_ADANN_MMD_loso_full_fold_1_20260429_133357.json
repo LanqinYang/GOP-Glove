@@ -1,0 +1,27 @@
+{
+  "model_type": "ADANN_MMD",
+  "training_mode": "loso",
+  "optimization_mode": "full",
+  "fold_id": 1,
+  "timestamp": "20260429_133357",
+  "best_trial_number": 4,
+  "best_value": 1.0,
+  "best_params": {
+    "learning_rate": 0.0003646439558980723,
+    "batch_size": 64,
+    "feature_size": 32,
+    "gesture_loss_weight": 1.980330404900776,
+    "domain_loss_weight": 1.6583671539449862,
+    "alignment_loss_weight": 0.47755979491492756,
+    "weight_decay": 1.0388823104027941e-06,
+    "n_epochs": 132,
+    "augment_factor": 3,
+    "jitter_noise_level": 0.01593510752061481,
+    "time_warp_max_speed": 4,
+    "scale_min": 0.9059235721387272,
+    "scale_max": 1.0486772582835417,
+    "augment_prob": 0.35793452976256485
+  },
+  "n_trials": 50,
+  "study_direction": "MAXIMIZE"
+}

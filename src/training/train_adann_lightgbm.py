@@ -27,6 +27,7 @@ import os
 # 导入ADANN组件
 from .train_adann import AdversarialFeatureExtractor, GradientReversalLayer
 from .train_adann import EnhancedFeatureExtractor as AdannEnhancedExtractor
+from .manuscript_gate import confidence_gated_predict, gated_decision_scores
 
 
 class AdannLightgbmModelWrapper:
@@ -273,7 +274,7 @@ class AdannLightgbmModelCreator:
             'domain_loss_weight': trial.suggest_float('domain_loss_weight', 0.5, 2.0),
             'grl_gamma': trial.suggest_float('grl_gamma', 6.0, 14.0),
             'grl_max': trial.suggest_float('grl_max', 0.90, 0.99),
-            'class_balanced_batches': False,
+            'class_balanced_batches': True,
             'auto_tune_ensemble_weight': False,
         }
 
@@ -518,30 +519,6 @@ class AdannLightgbmModelCreator:
         ensemble_probs = ensemble_weight * adann_val_probs + (1 - ensemble_weight) * lgb_val_probs
         ensemble_pred = ensemble_probs.argmax(axis=1)
 
-        def confidence_gated_predict(adann_prob, lgb_prob, adann_threshold, lgb_threshold, static_class):
-            gated = []
-            for p_adann, p_lgb in zip(adann_prob, lgb_prob):
-                y_adann = int(np.argmax(p_adann))
-                y_lgb = int(np.argmax(p_lgb))
-                c_adann = float(p_adann[y_adann])
-                c_lgb = float(p_lgb[y_lgb])
-                m_adann = float(np.partition(p_adann, -1)[-1] - np.partition(p_adann, -2)[-2])
-                m_lgb = float(np.partition(p_lgb, -1)[-1] - np.partition(p_lgb, -2)[-2])
-                adann_confident = c_adann >= adann_threshold
-                lgb_confident = c_lgb >= lgb_threshold
-
-                if adann_confident and lgb_confident and y_adann == y_lgb:
-                    gated.append(y_lgb)
-                elif adann_confident and not lgb_confident:
-                    gated.append(y_adann)
-                elif lgb_confident and not adann_confident:
-                    gated.append(y_lgb)
-                elif adann_confident and lgb_confident:
-                    gated.append(y_adann if m_adann > m_lgb else y_lgb)
-                else:
-                    gated.append(static_class)
-            return np.asarray(gated, dtype=int)
-
         try:
             static_class = int(gesture_encoder.transform([10])[0])
         except Exception:
@@ -639,7 +616,7 @@ class AdannLightgbmModelCreator:
             torch.LongTensor(y_train).to(self.device),
             torch.LongTensor(subjects_train).to(self.device)
         )
-        if hyperparams.get('class_balanced_batches', False):
+        if hyperparams.get('class_balanced_batches', True):
             class_counts = np.bincount(y_train, minlength=int(np.max(y_train)) + 1).astype(np.float64)
             class_counts[class_counts == 0] = 1.0
             sample_weights = 1.0 / class_counts[y_train]
@@ -824,50 +801,9 @@ class AdannLightgbmModelCreator:
         return ensemble_probs.argmax(axis=1)
     
     def predict(self, model, X):
-        """预测"""
-        # 提取特征 - 保持与训练时一致
-        X_adann = []
-        X_lgb = []
-        for sample in X:
-            # ADANN使用智能特征（190维）
-            adann_features = model['hybrid_extractor'].extract_adann_features(sample)
-            # LightGBM使用手工特征（190维）
-            lgb_features = model['hybrid_extractor'].extract_lightgbm_features(sample)
-            X_adann.append(adann_features)
-            X_lgb.append(lgb_features)
-        
-        X_adann = np.array(X_adann)
-        X_lgb = np.array(X_lgb)
-        
-        # 特征标准化
-        X_adann_scaled = model['adann_scaler'].transform(X_adann)
-        X_lgb_scaled = model['lgb_scaler'].transform(X_lgb)
-        
-        # 获取预测
-        adann_pred = self._predict_adann(model['adann'], X_adann_scaled)
-        lgb_pred = model['lightgbm'].predict(X_lgb_scaled)
-        
-        # 集成预测：保持和 train_model/predict_hybrid 的概率融合一致
-        model['adann'].eval()
-        with torch.no_grad():
-            X_tensor = torch.FloatTensor(X_adann_scaled).to(self.device)
-            gesture_logits, _, _ = model['adann'](X_tensor, reverse_gradient=False)
-            adann_probs = torch.softmax(gesture_logits, dim=1).cpu().numpy()
-
-        lgb_probs_raw = model['lightgbm'].predict_proba(X_lgb_scaled)
-        lgb_probs = np.zeros_like(adann_probs)
-        for prob_col, class_label in enumerate(model['lightgbm'].classes_):
-            class_idx = int(class_label)
-            if class_idx < lgb_probs.shape[1]:
-                lgb_probs[:, class_idx] = lgb_probs_raw[:, prob_col]
-
-        ensemble_weight = model['ensemble_weight']
-        ensemble_probs = ensemble_weight * adann_probs + (1 - ensemble_weight) * lgb_probs
-        ensemble_pred = ensemble_probs.argmax(axis=1)
-        
-        # 解码标签
-        predictions_decoded = model['gesture_encoder'].inverse_transform(ensemble_pred)
-        return predictions_decoded
+        """Return labels from the manuscript confidence gate."""
+        encoded = self.predict_hybrid(model, X).argmax(axis=1)
+        return model["gesture_encoder"].inverse_transform(encoded)
     
     def predict_hybrid(self, model, X):
         """混合模型预测 - 返回概率分布"""
@@ -910,9 +846,12 @@ class AdannLightgbmModelCreator:
             ensemble_weight = model['ensemble_weight']
             ensemble_probs = ensemble_weight * adann_probs + (1 - ensemble_weight) * lgb_probs
             
-            return ensemble_probs
+            if model.get("inference_mode") == "mixture_reference":
+                return ensemble_probs
+            static_class = int(model["gesture_encoder"].transform([10])[0])
+            return gated_decision_scores(adann_probs, lgb_probs,
+                adann_threshold=0.5, lgb_threshold=0.5, static_class=static_class)
             
         except Exception as e:
             print(f"⚠️ Hybrid prediction error: {e}")
-            # 返回随机预测作为备选
-            return np.random.rand(len(X), 11)
+            raise RuntimeError("Hybrid inference failed") from e

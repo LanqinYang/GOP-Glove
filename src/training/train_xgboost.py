@@ -100,7 +100,7 @@ class XgboostModelCreator:
 
                 # 频域特征 (12个)：spectral_centroid, dominant_freq, total_power, spectral_spread, spectral_entropy, low_freq_power, mid_freq_power, high_freq_power, 2nd_moment, 3rd_moment, peak_factor, coeff_var
                 try:
-                    freqs, psd = signal.periodogram(channel_data, fs=250)
+                    freqs, psd = signal.periodogram(channel_data, fs=50)
                     total_power = float(np.sum(psd))
                     
                     if total_power > 1e-12:

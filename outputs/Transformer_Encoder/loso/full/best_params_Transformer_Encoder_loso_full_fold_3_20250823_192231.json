@@ -1,0 +1,31 @@
+{
+  "model_type": "Transformer_Encoder",
+  "training_mode": "loso",
+  "optimization_mode": "full",
+  "fold_id": 3,
+  "timestamp": "20250823_192231",
+  "best_trial_number": 0,
+  "best_value": 0.9818181991577148,
+  "best_params": {
+    "n_transformer_layers": 2,
+    "d_model": 32,
+    "num_heads": 2,
+    "ff_dim": 231,
+    "use_attention_dropout": false,
+    "use_transformer_dropout": false,
+    "use_dense_dropout": true,
+    "activation": "swish",
+    "dense_units": 82,
+    "learning_rate": 0.0007309539835912913,
+    "batch_size": 32,
+    "augment_factor": 1,
+    "jitter_noise_level": 0.008663618432936917,
+    "time_warp_max_speed": 2,
+    "scale_min": 0.9735552788417904,
+    "scale_max": 1.0259902134647507,
+    "augment_prob": 0.45427033152408347,
+    "dense_dropout": 0.43696582754481694
+  },
+  "n_trials": 10,
+  "study_direction": "MAXIMIZE"
+}

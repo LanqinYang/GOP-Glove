@@ -1,301 +1,48 @@
-# BSL手势识别系统配置文件
-# 作者: Lambert Yang
-
-# 项目基本信息
+# Shared manuscript settings
 project:
-  name: "BSL-Gesture-Recognition"
-  version: "1.0.0"
-  description: "基于DIY传感器与端侧AI的BSL手势识别系统"
-  author: "Lambert Yang"
-
-# 数据配置
+  name: GOP-Glove
 data:
-  # 传感器参数
   num_sensors: 5
-  sample_rate: 50  # Hz
-  sequence_length: 100  # 2秒 × 50Hz
-  
-  # 手势类别
+  sample_rate: 50
+  sequence_length: 100
   num_classes: 11
-  class_names:
-    0: "Zero"
-    1: "One"
-    2: "Two"
-    3: "Three"
-    4: "Four"
-    5: "Five"
-    6: "Six"
-    7: "Seven"
-    8: "Eight"
-    9: "Nine"
-    10: "Static"
-  
-  # 数据增强 - 优化为轻度增强策略（基于性能分析结果）
   augmentation:
     enabled: true
-    augment_factor: 1 # 轻度增强获得最佳性能 (88.33% vs 86.67%)
-    jitter_noise_level: 0.005 # 降低噪声水平，避免破坏手势特征
-    scale_range: [0.98, 1.02] # 缩小缩放范围，保持信号完整性
-    time_warp_max_speed: 2 # 减少时间扭曲强度，特别保护gesture 5的过渡阶段
-    augment_prob: 0.3 # 降低增强概率，避免过度修改
-    
-  # 新增：滑动窗口标准化 (基于2025年最新研究)
+    augment_factor: 1
+    jitter_noise_level: 0.005
+    scale_range: [0.98, 1.02]
+    time_warp_max_speed: 2
+    augment_prob: 0.3
   sliding_window_normalization:
-    enabled: true
-    window_size: 200
-    overlap_ratio: 0.5
-    
-  # 新增：特征解耦配置 (对抗域适应)
-  feature_disentanglement:
-    enabled: true
-    adversarial_weight: 0.1 # 对抗损失权重
-    gesture_branch_depth: 2
-    subject_branch_depth: 1
-  
-  # 数据预处理
+    enabled: false
   preprocessing:
-    normalize_method: "standard"  # "standard" or "minmax"
-    train_split: 0.7
-    val_split: 0.15
-    test_split: 0.15
+    normalize_method: standard
+    fit_partition: train
     random_seed: 42
-
-# Arduino配置
+    iid_manifest: reproducibility/generated/iid_seed42.csv
+    loso_manifest: reproducibility/generated/loso_seed42.csv
 arduino:
-  # 硬件连接
-  sensor_pins: [0, 1, 2, 3, 4]  # A0-A4
+  sensor_pins: [0, 1, 2, 3, 4]
   baud_rate: 115200
-  
-  # EMA滤波参数
-  ema_alpha: 0.1
-  
-  # 数据采集
-  collection_duration: 2.0  # 秒
-  countdown_time: 3  # 秒
-
-# 模型配置
+  collection_duration: 2.0
 models:
-  # 支持的模型类型
-  supported_types: ["1D_CNN", "XGBoost", "Transformer_Encoder"]
-  
-  # 默认模型类型
-  default_type: "1D_CNN"
-  
-  # 模型输出路径结构
-  output_structure:
-    base_dir: "models/trained"
-    subdirs:
-      1D_CNN: "1D_CNN"
-      XGBoost: "XGBoost" 
-      Transformer_Encoder: "Transformer_Encoder"
-
-# 1D-CNN模型配置
-1D_CNN:
-  # 模型架构
-  model:
-    input_shape: [100, 5]
-    filters_list: [32, 64, 128, 64]
-    kernel_sizes: [7, 5, 3, 3]
-    pool_sizes: [2, 2, 2, 2]
-    dense_units: [128, 64]
-    dropout_rate: 0.3
-    use_batch_norm: true
-  
-  # 训练参数
-  training:
-    learning_rate: 1e-3
-    batch_size: 64
-    num_epochs: 150
-    patience: 20
-    validation_split: 0.2
-  
-  # 优化器
-  optimizer:
-    type: "Adam"
-    loss_function: "sparse_categorical_crossentropy"
-  
-  # TensorFlow Lite配置
-  tflite:
-    quantization: true
-    representative_dataset_size: 100
-
-# XGBoost模型配置
-xgboost:
-  # 模型参数
-  model:
-    n_estimators: 100
-    max_depth: 6
-    learning_rate: 0.1
-    subsample: 0.8
-    colsample_bytree: 0.8
-    random_state: 42
-  
-  # 特征工程
-  feature_engineering:
-    statistical_features: true  # 均值、标准差、最大值、最小值等
-    frequency_features: true    # FFT特征
-    temporal_features: true     # 时间域特征
-    window_features: true       # 滑动窗口统计特征
-  
-  # 训练参数
-  training:
-    cross_validation: 5
-    early_stopping_rounds: 10
-    eval_metric: "mlogloss"
-
-# 已移除 CNN-LSTM 模型配置
-
-# Transformer Encoder模型配置
-transformer_encoder:
-  # 模型架构
-  model:
-    input_dim: 5
-    d_model: 128
-    nhead: 8
-    num_layers: 6
-    dim_feedforward: 512
-    dropout: 0.1
-    max_seq_len: 100
-    positional_encoding: true
-  
-  # 训练参数
-  training:
-    learning_rate: 1e-4
-    weight_decay: 1e-5
-    batch_size: 32
-    num_epochs: 100
-    patience: 15
-    label_smoothing: 0.1
-    warmup_epochs: 10
-  
-  # 优化器
-  optimizer:
-    type: "AdamW"
-    scheduler: "CosineAnnealing"
-    warmup_steps: 1000
-
-# 超轻量级模型配置（针对Arduino优化）
-lightweight_cnn1d:
-  model:
-    input_shape: [100, 5]
-    filters_list: [16, 32, 16]
-    kernel_sizes: [5, 3, 3]
-    pool_sizes: [2, 2, 2]
-    dense_units: [32]
-    dropout_rate: 0.2
-    use_batch_norm: true
-  
-  training:
-    learning_rate: 1e-3
-    batch_size: 64
-    num_epochs: 200
-    patience: 25
-
-# 实时推理配置
+  default_type: ADANN_LightGBM
+  supported_types: [ADANN_LightGBM, ADANN, LightGBM, DSCNN, 1D_CNN, XGBoost, Transformer_Encoder, ADANN_GRL, ADANN_MMD, ADANN_CORAL]
 inference:
-  # PC端推理
-  pc:
-    confidence_threshold: 0.95
-    window_size: 100
-    slide_step: 10
-    
-  # Arduino端推理
+  adann_confidence_threshold: 0.5
+  lightgbm_confidence_threshold: 0.5
+  confident_disagreement: probability_margin
+  low_confidence_class: Static
   arduino:
-    model_quantization: "int8"
-    memory_limit: 32768  # bytes (32KB)
-    target_latency: 5  # ms
-
-# 数据路径配置
-paths:
-  # 数据目录
-  data:
-    raw: "datasets/raw"
-    processed: "datasets/processed"
-    cache: "datasets/cache"
-  
-  # 模型目录
-  models:
-    trained: "models/trained"
-    tflite: "models/tflite"
-    arduino: "models/arduino"
-  
-  # 日志和输出
-  outputs: "outputs"
-  docs: "docs"
-
-# 可视化配置
-visualization:
-  # 图表设置
-  figure_size: [12, 8]
-  dpi: 300
-  style: "seaborn"
-  
-  # 颜色方案
-  colors:
-    primary: "#1f77b4"
-    secondary: "#ff7f0e"
-    success: "#2ca02c"
-    warning: "#d62728"
-    info: "#9467bd"
-
-# 日志配置
-logging:
-  level: "INFO"
-  format: "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}"
-  rotation: "10 MB"
-  retention: "1 week"
-
-# 评估配置
-evaluation:
-  metrics:
-    - "accuracy"
-    - "precision"
-    - "recall"
-    - "f1_score"
-    - "confusion_matrix"
-  
-  # 性能基准
-  benchmarks:
-    transformer_min_accuracy: 0.85
-    cnn1d_min_accuracy: 0.80
-    arduino_max_latency: 10  # ms
-    arduino_max_memory: 32768  # bytes
-
-# 部署配置
+    model_precision: FP32
+    memory_limit: 262144
+    flash_limit: 1048576
 deployment:
-  # TensorFlow Lite转换
-  tflite_conversion:
-    optimization: true
-    quantization: "int8"
-    target_ops: ["TFLITE_BUILTINS_INT8"]
-  
-  # Arduino部署
-  arduino_deployment:
-    target_board: "Arduino Nano 33 BLE Sense Rev2"
-    memory_limit: 262144  # 256KB
-    flash_limit: 1048576  # 1MB
-    
-# 测试配置
-testing:
-  # 单元测试
-  unit_tests:
-    coverage_threshold: 0.8
-    test_data_size: 100
-  
-  # 集成测试
-  integration_tests:
-    test_duration: 30  # 秒
-    test_gestures: [0, 1, 2, 3, 4, 5]
-
-# 开发配置
-development:
-  # 调试模式
-  debug: false
-  
-  # 性能分析
-  profiling: false
-  
-  # 实验追踪
-  experiment_tracking:
-    enabled: true
-    backend: "tensorboard" 
+  target_board: Arduino Nano 33 BLE Sense Rev2
+  acquisition_seconds: 2.0
+  reported_full_cycle_seconds: 2.5
+  reported_post_acquisition_seconds_below: 0.5
+paths:
+  data:
+    raw: datasets/gesture_csv
+  outputs: outputs/manuscript

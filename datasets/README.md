@@ -23,6 +23,6 @@ feature extraction. See `reproducibility/dataset_manifest.csv` for file-level
 SHA-256 hashes and raw sample counts.
 
 Evaluation should keep held-out subjects out of training and fitted
-preprocessing. Current-protocol IID and LOSO file manifests are provided under
-`reproducibility/generated/`; their historical-reproduction limits are
-documented there. See the repository LICENSE and existing project attribution.
+preprocessing. IID and LOSO filename partitions are provided under
+`reproducibility/generated/`. Training, validation and testing use these
+explicit partitions. See the repository LICENSE and existing project attribution.

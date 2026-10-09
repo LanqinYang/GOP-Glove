@@ -1,0 +1,28 @@
+{
+  "model_type": "XGBoost",
+  "training_mode": "loso",
+  "optimization_mode": "full",
+  "fold_id": 6,
+  "timestamp": "20250822_102521",
+  "best_trial_number": 11,
+  "best_value": 0.990909090909091,
+  "best_params": {
+    "n_estimators": 588,
+    "max_depth": 3,
+    "learning_rate": 0.010270186512004727,
+    "subsample": 0.9797372280710337,
+    "colsample_bytree": 0.8208104960302076,
+    "gamma": 0.4171936334597621,
+    "min_child_weight": 4,
+    "reg_alpha": 0.03472995687039085,
+    "reg_lambda": 1.5152270871434228,
+    "augment_factor": 1,
+    "jitter_noise_level": 0.007183745763588524,
+    "time_warp_max_speed": 2,
+    "scale_min": 0.9798804959524231,
+    "scale_max": 1.0397168732222477,
+    "augment_prob": 0.3621970787648641
+  },
+  "n_trials": 50,
+  "study_direction": "MAXIMIZE"
+}

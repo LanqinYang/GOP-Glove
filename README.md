@@ -1,163 +1,99 @@
 # BSL Gesture Recognition System
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.16%2B-orange.svg)](https://tensorflow.org/)
+[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-A controlled six-participant engineering feasibility study of an isolated 11-class British Sign Language (BSL) vocabulary using a five-channel graphite-on-paper glove. This repository contains the pseudonymised sensor recordings, training and diagnostic sources, and archived embedded source files.
+A controlled six-participant feasibility study of an isolated 11-class British Sign Language (BSL) vocabulary using a five-channel graphite-on-paper glove and an Arduino Nano 33 BLE Sense Rev2.
 
-## Manuscript (under review, 2026)
+## Manuscript
+
 *Domain-Adversarial Light Gradient Boosting Machine for On-Device Recognition of Isolated Gestures from a Constrained BSL Vocabulary Using Graphite-on-Paper Sensors*
-Contact: ml23597@qmul.ac.uk
 
-## 🚀 Features
+The manuscript reports LOSO Macro-F1 of 0.8366 and accuracy of 0.8530. Mean branch improvements were not statistically significant after Holm correction. The reported full recognition cycle is approximately 2.5 s, comprising two-second acquisition and post-acquisition processing below 0.5 s, under short-term indoor, USB-connected profiling.
 
-- **Hybrid model (DA-LGBM):** ADANN (domain-adversarial, user-invariant representation) + LightGBM (high-accuracy classifier)
-- **Confidence-gated fusion:** prediction-margin gating to mitigate sensor drift and inter-subject variability
-- **Hardware closed-loop:** DIY 5-channel GoP glove + readout circuit + 50 Hz acquisition firmware
-- **Edge deployment:** model translated to pure C (m2cgen) and deployed on Arduino Nano 33 BLE (256 KB SRAM)
-- **Cross-subject evaluation:** six held-out-subject folds, with original diagnostic results and provenance recorded separately.
-- **Deployment timing:** approximately 2.5 s per full recognition cycle, including two-second acquisition and less than 0.5 s of post-acquisition processing in the archived indoor, USB-connected setup.
+## 🚀 Method
 
-## 🛠️ Quick Start
+- Five GoP channels acquired at 50 Hz in independent two-second windows.
+- Linear resampling to 100 points per channel and a shared 190-D descriptor: 18 time-domain, 12 frequency-domain and eight Ricker-wavelet features per channel.
+- Parallel ADANN and LightGBM branches; fold-dependent scalers fit on training data only.
+- Fixed 0.5 confidence thresholds. Confident agreement returns the agreed class; one confident branch supplies its label; confident disagreement uses the larger top-two probability margin; two low-confidence branches return Static.
+- Training-only jitter, amplitude scaling and time warping, with augmentation probability 0.3.
+- Six LOSO folds and five stability seeds: 42, 123, 2025, 2026 and 3047.
+- FP32 ADANN forward pass and plain-C LightGBM inference on the Arduino.
 
-### Installation
+## 📁 Reproducibility materials
+
+| Material | Location |
+|---|---|
+| Pseudonymised dataset | `datasets/gesture_csv/`; file identities in `reproducibility/dataset_manifest.csv` |
+| Feature extraction scripts | `src/training/manuscript_features.py`, `scripts/export_reproducibility.py` |
+| IID/LOSO split files | `reproducibility/generated/iid_seed42.csv`, `reproducibility/generated/loso_seed42.csv` |
+| Baseline configurations | `configs/baseline_configs.json`, `configs/da_lgbm_loso.json`, recorded fold parameter files |
+| Seed-stability scripts | `experiments/da_lgbm_seed_stability_loso.py`, `scripts/run_manuscript.py seeds` |
+| Robustness-analysis scripts | `experiments/awgn_robustness.py`, `experiments/sampling_jitter_robustness.py`, `experiments/sensor_drift_robustness.py` |
+| Embedded inference code | `arduino/tinyml_inference/ADANN_LightGBM_inference/BSL_Gesture_Demo/` |
+
+The shared settings are in `configs/manuscript_protocol.json`. Training commands write predictions, confusion matrices, parameters and computed metrics into their output directories.
+
+## 🛠️ Quick start
+
+Use Python 3.12 from the repository root:
 
 ```bash
 git clone https://github.com/LanqinYang/GOP-Glove.git
 cd GOP-Glove
 python -m pip install -r requirements.txt
+python scripts/run_manuscript.py prepare
+python scripts/verify_reproducibility.py
 ```
 
-### Data Collection
-
-1. **Upload Arduino Firmware**:
-   ```bash
-   # Upload to Arduino Nano 33 BLE Sense Rev2
-   # File: arduino/data_collection/sensor_data_collector/sensor_data_collector.ino
-   ```
-
-2. **Collect Gesture Data**:
-   ```bash
-   # Test sensor (15s)
-   python -m src.data.data_collector test --port /dev/cu.usbmodemXXXX --duration 15
-   
-   # Full dataset collection
-   python -m src.data.data_collector auto --port /dev/cu.usbmodemXXXX
-   ```
-
-### Training
+Feature extraction and partition checks alone use the smaller environment:
 
 ```bash
-# Basic training
-python run.py --model_type 1D_CNN --epochs 100 --n_trials 50
-
-# LOSO cross-validation
-python run.py --model_type ADANN_LightGBM --loso --epochs 100 --n_trials 50
-
-```
-
-### Recorded result sources
-
-| Source | Mean Macro-F1 | Mean accuracy | Status |
-|---|---:|---:|---|
-| Archived DA-LGBM confusion matrices | 0.8366 | 0.8530 | Archived counts; exact training-checkpoint correspondence remains open |
-| Five-seed offline diagnostic | 0.7931 | 0.8139 | Raw summary arithmetic verified |
-| Separate seed-810 gate audit | 0.7717 | 0.7909 | Independent diagnostic; includes the Static audit |
-
-These are separate result sources. They are not one reproduced training run.
-See [reproduction status](reproducibility/REPRODUCTION_STATUS.md).
-
-
-## 📁 Project Structure
-
-```
-├── src/
-│   ├── training/          # Model training scripts
-│   ├── data/             # Data collection and processing
-│   └── test/             # Testing and evaluation
-├── arduino/
-│   ├── data_collection/  # Arduino firmware
-│   └── tinyml_inference/ # Edge deployment code
-├── datasets/
-│   └── gesture_csv/      # Training data
-├── configs/              # Configuration files
-├── models/               # Trained models
-├── outputs/              # Evaluation results
-└── run.py               # Main entry point
-```
-
-## 🔧 Key Technologies
-
-- **Machine Learning**: TensorFlow, XGBoost, LightGBM, Optuna
-- **Hardware**: Arduino Nano 33 BLE Sense Rev2
-- **Edge Computing**: TensorFlow Lite, TinyML
-- **Data Processing**: NumPy, Pandas, Scikit-learn
-
-## 🚀 Deployment
-
-### Arduino Deployment
-
-```bash
-# Generate Arduino-optimized model
-python run.py --model_type 1D_CNN --arduino --epochs 100 --n_trials 50
-
-# Upload inference code to Arduino
-# File: arduino/tinyml_inference/1D_CNN_inference/Latency_standard/Latency_*.ino
-```
-
-### Latency Testing
-
-```bash
-# Arduino latency test
-# In Serial Monitor: latency 200 10
-
-# Colab CPU benchmarking
-# Open: src/test/Latency_test_CPU.ipynb
-```
-
-## 📈 Advanced Features
-
-### Hyperparameter Optimization
-
-- **Optuna Integration**: Automated search with pruning
-- **Early Convergence**: Efficient trial management
-- **Reproducible Results**: Fixed random seeds
-
-### Data Processing Pipeline
-
-1. **Resampling**: Fixed 100 timesteps per sequence
-2. **Augmentation**: Jittering, scaling, time warping
-3. **Normalization**: StandardScaler for consistent features
-
-### Model Deployment
-
-- **Code Generation**: C/C++ code for ALL models (Transformer cannot infer)
-- **Convert Tool**: TensorFlowLite, PyTorch, m2cgen, micromlgen
-
-## 🤝 Contributing
-
-I welcome contributions! This project demonstrates:
-- Quantified instability (shift, drift, channel-specific) and its impact on cross-user genelization.
-- DA-LGBM hybrid: ADANN (user-invariant features) + LightGBM (threshold-like cues) -> best LOSO result
-- Deployed on Arduino-class MCU; latency bottleneck pinpointed outside the classifier.
-
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Inspect the reproducibility materials
-
-```bash
-python -m pip install -r reproducibility/requirements-audit.txt
+python -m pip install -r reproducibility/requirements-features.txt
 python scripts/export_reproducibility.py
 python scripts/verify_reproducibility.py
 ```
 
-The check verifies dataset identity, exported split isolation, descriptor
-shape and raw diagnostic arithmetic. Training and physical-device profiling
-were not rerun by this material audit. Current split manifests use sorted
-filenames and are not claimed as recovered historical primary-run splits.
-The legacy hardware demo differs from the offline margin/Static gate; read
-[reproduction status](reproducibility/REPRODUCTION_STATUS.md) before reuse.
+## Training and evaluation
+
+```bash
+# DA-LGBM, six LOSO folds
+python scripts/run_manuscript.py train --model DA_LGBM --evaluation loso
+
+# Pooled IID evaluation
+python scripts/run_manuscript.py train --model DA_LGBM --evaluation iid
+
+# Baseline example
+python scripts/run_manuscript.py train --model LightGBM --evaluation loso
+
+# Five stability seeds, using the same LOSO train/validation/test partitions
+python scripts/run_manuscript.py seeds
+```
+
+Validation windows and held-out-subject windows are excluded from augmentation and scaler fitting. `--folds`, `--seed`, `--epochs` and `--output_dir` select the training run. Saved experiment outputs are under `reproducibility/results/`.
+
+## Controlled robustness analysis
+
+```bash
+python scripts/run_manuscript.py robustness awgn
+python scripts/run_manuscript.py robustness jitter
+python scripts/run_manuscript.py robustness drift
+```
+
+AWGN levels are clean, 20, 10 and 5 dB; sampling jitter is clean and ±2%, ±5% and ±10%; drift is clean, light, medium and heavy. Each experiment trains on clean windows, keeps the fitted model and preprocessing fixed, and perturbs held-out test windows only. Results are saved directly from the computed predictions.
+
+## 🚀 Arduino deployment
+
+The sketch contains the 190-D feature extractor, branch forward passes, confidence gate and phase/timing markers. The two branch model headers are included with the sketch.
+
+```bash
+arduino-cli core install arduino:mbed_nano
+arduino-cli compile --fqbn arduino:mbed_nano:nano33ble   arduino/tinyml_inference/ADANN_LightGBM_inference/BSL_Gesture_Demo
+```
+
+Use the Arduino IDE or `arduino-cli upload` to upload to the connected Nano 33 BLE Sense Rev2. The serial interface starts an independent acquisition with `s` and prints timing summaries with `R`. Full-cycle timing includes acquisition; post-acquisition timing covers feature extraction, inference, gating and output.
+
+## 📄 License
+
+The existing project code is distributed under the [MIT License](LICENSE). Dataset columns and identifiers are described in [datasets/README.md](datasets/README.md).

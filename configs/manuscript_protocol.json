@@ -1,0 +1,65 @@
+{
+  "dataset": {
+    "participants": 6,
+    "classes": 11,
+    "windows": 660,
+    "sampling_rate_hz": 50,
+    "acquisition_seconds": 2,
+    "window_shape": [
+      100,
+      5
+    ],
+    "overlapping_windows": false
+  },
+  "descriptor": {
+    "dimensions": 190,
+    "time_per_channel": 18,
+    "frequency_per_channel": 12,
+    "wavelet_per_channel": 8,
+    "sampling_rate_hz": 50
+  },
+  "evaluation": {
+    "split_seed": 42,
+    "iid_manifest": "reproducibility/generated/iid_seed42.csv",
+    "loso_manifest": "reproducibility/generated/loso_seed42.csv",
+    "seeds": [
+      42,
+      123,
+      2025,
+      2026,
+      3047
+    ]
+  },
+  "augmentation": {
+    "augment_factor": 1,
+    "augment_prob": 0.3,
+    "jitter_noise_level": 0.005,
+    "scale_range": [
+      0.98,
+      1.02
+    ],
+    "time_warp_max_speed": 2,
+    "training_only": true
+  },
+  "fusion": {
+    "adann_threshold": 0.5,
+    "lightgbm_threshold": 0.5,
+    "confident_disagreement": "larger_probability_margin",
+    "margin_tie": "LightGBM",
+    "low_confidence_class": 10,
+    "auto_tune_thresholds": false
+  },
+  "adann": {
+    "feature_size": 64,
+    "class_balanced_batches": true,
+    "grl_max": 0.99,
+    "optimizer": "Adam",
+    "early_stopping_metric": "validation_macro_f1"
+  },
+  "deployment": {
+    "board": "Arduino Nano 33 BLE Sense Rev2",
+    "adann_precision": "FP32",
+    "full_cycle_seconds": 2.5,
+    "post_acquisition_seconds_below": 0.5
+  }
+}

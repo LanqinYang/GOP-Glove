@@ -1,5 +1,5 @@
 {
-  "manifest_kind": "current_deterministic_protocol_not_recovered_historical_splits",
+  "manifest_kind": "manuscript_evaluation_protocol",
   "input_order": "lexicographic_filename",
   "seed": 42,
   "iid_test_ratio": 0.2,
@@ -21,9 +21,8 @@
     ],
     "preprocessing": "linear resample to 100; round; float32; no fitted scaler",
     "use": "descriptor inspection; not the train-fitted model input",
-    "legacy_periodogram_coordinate": 250,
+    "periodogram_sampling_rate_hz": 50,
     "physical_acquisition_hz": 50
   },
-  "input_filename_order_sha256": "da0c02699f366bc5ac4ec3addbf2c831209d9a1f6be3d0940025f1abd4e03704",
-  "historical_primary_run_reproduced": false
+  "input_filename_order_sha256": "da0c02699f366bc5ac4ec3addbf2c831209d9a1f6be3d0940025f1abd4e03704"
 }

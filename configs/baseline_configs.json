@@ -1,0 +1,209 @@
+{
+  "ADANN": {
+    "model_type": "ADANN",
+    "fold_parameter_files": {
+      "1": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_1_20250822_120036.json",
+      "2": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_2_20250822_122029.json",
+      "3": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_3_20250822_123927.json",
+      "4": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_4_20250822_125622.json",
+      "5": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_5_20250822_131200.json",
+      "6": "outputs/ADANN/loso/full/best_params_ADANN_loso_full_fold_6_20250822_132658.json"
+    },
+    "split_manifest": "reproducibility/generated/loso_seed42.csv",
+    "augmentation": {
+      "augment_factor": 1,
+      "augment_prob": 0.3,
+      "jitter_noise_level": 0.005,
+      "scale_range": [
+        0.98,
+        1.02
+      ],
+      "time_warp_max_speed": 2,
+      "training_only": true
+    }
+  },
+  "LightGBM": {
+    "model_type": "LightGBM",
+    "fold_parameter_files": {
+      "1": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_1_20260313_113714.json",
+      "2": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_2_20250822_142733.json",
+      "3": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_3_20250822_142852.json",
+      "4": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_4_20250822_142943.json",
+      "5": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_5_20250822_143052.json",
+      "6": "outputs/LightGBM/loso/full/best_params_LightGBM_loso_full_fold_6_20250822_143154.json"
+    },
+    "split_manifest": "reproducibility/generated/loso_seed42.csv",
+    "augmentation": {
+      "augment_factor": 1,
+      "augment_prob": 0.3,
+      "jitter_noise_level": 0.005,
+      "scale_range": [
+        0.98,
+        1.02
+      ],
+      "time_warp_max_speed": 2,
+      "training_only": true
+    }
+  },
+  "DSCNN": {
+    "model_type": "DSCNN",
+    "fold_parameter_files": {
+      "1": "outputs/DSCNN/loso/full/best_params_DSCNN_loso_full_fold_1_20260429_155419.json",
+      "2": "outputs/DSCNN/loso/full/best_params_DSCNN_loso_full_fold_2_20260429_155946.json",
+      "3": "outputs/DSCNN/loso/full/best_params_DSCNN_loso_full_fold_3_20260429_160349.json",
+      "4": "outputs/DSCNN/loso/full/best_params_DSCNN_loso_full_fold_4_20260429_160800.json",
+      "5": "outputs/DSCNN/loso/full/best_params_DSCNN_loso_full_fold_5_20260429_161144.json",
+      "6": "outputs/DSCNN/loso/full/best_params_DSCNN_loso_full_fold_6_20260429_161517.json"
+    },
+    "split_manifest": "reproducibility/generated/loso_seed42.csv",
+    "augmentation": {
+      "augment_factor": 1,
+      "augment_prob": 0.3,
+      "jitter_noise_level": 0.005,
+      "scale_range": [
+        0.98,
+        1.02
+      ],
+      "time_warp_max_speed": 2,
+      "training_only": true
+    }
+  },
+  "1D_CNN": {
+    "model_type": "1D_CNN",
+    "fold_parameter_files": {
+      "1": "outputs/1D_CNN/loso/full/best_params_1D_CNN_loso_full_fold_1_20250822_044552.json",
+      "2": "outputs/1D_CNN/loso/full/best_params_1D_CNN_loso_full_fold_2_20250822_035506.json",
+      "3": "outputs/1D_CNN/loso/full/best_params_1D_CNN_loso_full_fold_3_20250822_035848.json",
+      "4": "outputs/1D_CNN/loso/full/best_params_1D_CNN_loso_full_fold_4_20250822_040200.json",
+      "5": "outputs/1D_CNN/loso/full/best_params_1D_CNN_loso_full_fold_5_20250822_040508.json",
+      "6": "outputs/1D_CNN/loso/full/best_params_1D_CNN_loso_full_fold_6_20250822_040825.json"
+    },
+    "split_manifest": "reproducibility/generated/loso_seed42.csv",
+    "augmentation": {
+      "augment_factor": 1,
+      "augment_prob": 0.3,
+      "jitter_noise_level": 0.005,
+      "scale_range": [
+        0.98,
+        1.02
+      ],
+      "time_warp_max_speed": 2,
+      "training_only": true
+    }
+  },
+  "XGBoost": {
+    "model_type": "XGBoost",
+    "fold_parameter_files": {
+      "1": "outputs/XGBoost/loso/full/best_params_XGBoost_loso_full_fold_1_20250822_100525.json",
+      "2": "outputs/XGBoost/loso/full/best_params_XGBoost_loso_full_fold_2_20250822_101021.json",
+      "3": "outputs/XGBoost/loso/full/best_params_XGBoost_loso_full_fold_3_20250822_101350.json",
+      "4": "outputs/XGBoost/loso/full/best_params_XGBoost_loso_full_fold_4_20250822_101649.json",
+      "5": "outputs/XGBoost/loso/full/best_params_XGBoost_loso_full_fold_5_20250822_102029.json",
+      "6": "outputs/XGBoost/loso/full/best_params_XGBoost_loso_full_fold_6_20250822_102521.json"
+    },
+    "split_manifest": "reproducibility/generated/loso_seed42.csv",
+    "augmentation": {
+      "augment_factor": 1,
+      "augment_prob": 0.3,
+      "jitter_noise_level": 0.005,
+      "scale_range": [
+        0.98,
+        1.02
+      ],
+      "time_warp_max_speed": 2,
+      "training_only": true
+    }
+  },
+  "Transformer_Encoder": {
+    "model_type": "Transformer_Encoder",
+    "fold_parameter_files": {
+      "1": "outputs/Transformer_Encoder/loso/full/best_params_Transformer_Encoder_loso_full_fold_1_20250823_190524.json",
+      "2": "outputs/Transformer_Encoder/loso/full/best_params_Transformer_Encoder_loso_full_fold_2_20250823_191337.json",
+      "3": "outputs/Transformer_Encoder/loso/full/best_params_Transformer_Encoder_loso_full_fold_3_20250823_192231.json",
+      "4": "outputs/Transformer_Encoder/loso/full/best_params_Transformer_Encoder_loso_full_fold_4_20250823_193033.json",
+      "5": "outputs/Transformer_Encoder/loso/full/best_params_Transformer_Encoder_loso_full_fold_5_20250823_193718.json",
+      "6": "outputs/Transformer_Encoder/loso/full/best_params_Transformer_Encoder_loso_full_fold_6_20250823_194551.json"
+    },
+    "split_manifest": "reproducibility/generated/loso_seed42.csv",
+    "augmentation": {
+      "augment_factor": 1,
+      "augment_prob": 0.3,
+      "jitter_noise_level": 0.005,
+      "scale_range": [
+        0.98,
+        1.02
+      ],
+      "time_warp_max_speed": 2,
+      "training_only": true
+    }
+  },
+  "ADANN_GRL": {
+    "model_type": "ADANN_GRL",
+    "fold_parameter_files": {
+      "1": "outputs/ADANN_GRL/loso/full/domain_compare_v1/best_params_ADANN_GRL_loso_full_fold_1_20260429_120230.json",
+      "2": "outputs/ADANN_GRL/loso/full/domain_compare_v1/best_params_ADANN_GRL_loso_full_fold_2_20260429_121342.json",
+      "3": "outputs/ADANN_GRL/loso/full/domain_compare_v1/best_params_ADANN_GRL_loso_full_fold_3_20260429_122715.json",
+      "4": "outputs/ADANN_GRL/loso/full/domain_compare_v1/best_params_ADANN_GRL_loso_full_fold_4_20260429_124451.json",
+      "5": "outputs/ADANN_GRL/loso/full/domain_compare_v1/best_params_ADANN_GRL_loso_full_fold_5_20260429_125850.json",
+      "6": "outputs/ADANN_GRL/loso/full/domain_compare_v1/best_params_ADANN_GRL_loso_full_fold_6_20260429_131147.json"
+    },
+    "split_manifest": "reproducibility/generated/loso_seed42.csv",
+    "augmentation": {
+      "augment_factor": 1,
+      "augment_prob": 0.3,
+      "jitter_noise_level": 0.005,
+      "scale_range": [
+        0.98,
+        1.02
+      ],
+      "time_warp_max_speed": 2,
+      "training_only": true
+    }
+  },
+  "ADANN_MMD": {
+    "model_type": "ADANN_MMD",
+    "fold_parameter_files": {
+      "1": "outputs/ADANN_MMD/loso/full/domain_compare_v1/best_params_ADANN_MMD_loso_full_fold_1_20260429_133357.json",
+      "2": "outputs/ADANN_MMD/loso/full/domain_compare_v1/best_params_ADANN_MMD_loso_full_fold_2_20260429_134820.json",
+      "3": "outputs/ADANN_MMD/loso/full/domain_compare_v1/best_params_ADANN_MMD_loso_full_fold_3_20260429_140357.json",
+      "4": "outputs/ADANN_MMD/loso/full/domain_compare_v1/best_params_ADANN_MMD_loso_full_fold_4_20260429_141942.json",
+      "5": "outputs/ADANN_MMD/loso/full/domain_compare_v1/best_params_ADANN_MMD_loso_full_fold_5_20260429_143739.json",
+      "6": "outputs/ADANN_MMD/loso/full/domain_compare_v1/best_params_ADANN_MMD_loso_full_fold_6_20260429_145226.json"
+    },
+    "split_manifest": "reproducibility/generated/loso_seed42.csv",
+    "augmentation": {
+      "augment_factor": 1,
+      "augment_prob": 0.3,
+      "jitter_noise_level": 0.005,
+      "scale_range": [
+        0.98,
+        1.02
+      ],
+      "time_warp_max_speed": 2,
+      "training_only": true
+    }
+  },
+  "ADANN_CORAL": {
+    "model_type": "ADANN_CORAL",
+    "fold_parameter_files": {
+      "1": "outputs/ADANN_CORAL/loso/full/domain_compare_v1/best_params_ADANN_CORAL_loso_full_fold_1_20260429_150733.json",
+      "2": "outputs/ADANN_CORAL/loso/full/domain_compare_v1/best_params_ADANN_CORAL_loso_full_fold_2_20260429_152003.json",
+      "3": "outputs/ADANN_CORAL/loso/full/domain_compare_v1/best_params_ADANN_CORAL_loso_full_fold_3_20260429_152958.json",
+      "4": "outputs/ADANN_CORAL/loso/full/domain_compare_v1/best_params_ADANN_CORAL_loso_full_fold_4_20260429_154221.json",
+      "5": "outputs/ADANN_CORAL/loso/full/domain_compare_v1/best_params_ADANN_CORAL_loso_full_fold_5_20260429_155755.json",
+      "6": "outputs/ADANN_CORAL/loso/full/domain_compare_v1/best_params_ADANN_CORAL_loso_full_fold_6_20260429_160922.json"
+    },
+    "split_manifest": "reproducibility/generated/loso_seed42.csv",
+    "augmentation": {
+      "augment_factor": 1,
+      "augment_prob": 0.3,
+      "jitter_noise_level": 0.005,
+      "scale_range": [
+        0.98,
+        1.02
+      ],
+      "time_warp_max_speed": 2,
+      "training_only": true
+    }
+  }
+}

@@ -80,7 +80,7 @@ def set_seeds(seed: int, enable_tf: bool = False) -> None:
 
 
 def load_data(csv_dir: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    csv_files = glob.glob(str(PROJECT_ROOT / csv_dir / "*.csv"))
+    csv_files = sorted(glob.glob(str(PROJECT_ROOT / csv_dir / "*.csv")))
     all_data, all_labels, all_subjects = [], [], []
 
     for csv_file in csv_files:

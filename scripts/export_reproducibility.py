@@ -1,8 +1,4 @@
-"""Export current-protocol file splits and the inspectable legacy descriptor.
-
-The manifests identify a deterministic protocol generated now. They do not
-claim to recover the input ordering of an earlier, unsorted training run.
-"""
+"""Export IID/LOSO file partitions and the shared 190-D descriptor."""
 from __future__ import annotations
 
 import argparse
@@ -18,7 +14,7 @@ from sklearn.model_selection import train_test_split
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from reproducibility.legacy_features import EnhancedFeatureExtractor
+from reproducibility.features import EnhancedFeatureExtractor
 
 
 def write_csv(path, rows, fields):
@@ -79,17 +75,17 @@ def main():
     if features.shape != (660, 190) or not np.isfinite(features).all():
         raise ValueError("Descriptor dimension/finite-value check failed")
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    np.save(args.output_dir / "legacy_unscaled_features.npy", features)
+    np.save(args.output_dir / "manuscript_unscaled_features.npy", features)
     write_csv(args.output_dir / "feature_row_order.csv", [dict(row=i, filename=name) for i, name in enumerate(files)], ["row", "filename"])
     metadata = {
-        "manifest_kind": "current_deterministic_protocol_not_recovered_historical_splits",
+        "manifest_kind": "manuscript_evaluation_protocol",
         "input_order": "lexicographic_filename", "seed": args.seed,
         "iid_test_ratio": 0.2, "iid_validation_ratio_of_remaining": 0.2,
         "iid_counts": {partition: sum(r["partition"] == partition for r in iid) for partition in ("train", "validation", "test")},
         "loso_counts_per_fold": {"train": 440, "validation": 110, "test": 110},
-        "features": {"shape": list(features.shape), "preprocessing": "linear resample to 100; round; float32; no fitted scaler", "use": "descriptor inspection; not the train-fitted model input", "legacy_periodogram_coordinate": 250, "physical_acquisition_hz": 50},
+        "features": {"shape": list(features.shape), "preprocessing": "linear resample to 100; round; float32; no fitted scaler", "use": "descriptor inspection; not the train-fitted model input", "periodogram_sampling_rate_hz": 50, "physical_acquisition_hz": 50},
         "input_filename_order_sha256": hashlib.sha256("\n".join(files).encode()).hexdigest(),
-        "historical_primary_run_reproduced": False,
+
     }
     (args.output_dir / "protocol_metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
     print(json.dumps(metadata))

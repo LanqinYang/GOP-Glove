@@ -44,6 +44,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.training.train_adann_lightgbm import AdannLightgbmModelCreator
+from src.training.manuscript_gate import confidence_gated_predict
+from reproducibility.splits import partition_indices
 
 
 # Keep key constants aligned with the training pipeline
@@ -702,36 +704,6 @@ def evaluate_branch_accuracies(
     lgb_pred_decoded = trained_model["gesture_encoder"].inverse_transform(lgb_pred)
     ensemble_pred_decoded = trained_model["gesture_encoder"].inverse_transform(ensemble_pred)
 
-    def confidence_gated_predict(
-        adann_prob: np.ndarray,
-        lgb_prob: np.ndarray,
-        adann_threshold: float,
-        lgb_threshold: float,
-        static_class: int,
-    ) -> np.ndarray:
-        gated = []
-        for p_adann, p_lgb in zip(adann_prob, lgb_prob):
-            y_adann = int(np.argmax(p_adann))
-            y_lgb = int(np.argmax(p_lgb))
-            c_adann = float(p_adann[y_adann])
-            c_lgb = float(p_lgb[y_lgb])
-            m_adann = float(np.partition(p_adann, -1)[-1] - np.partition(p_adann, -2)[-2])
-            m_lgb = float(np.partition(p_lgb, -1)[-1] - np.partition(p_lgb, -2)[-2])
-            adann_confident = c_adann >= adann_threshold
-            lgb_confident = c_lgb >= lgb_threshold
-
-            if adann_confident and lgb_confident and y_adann == y_lgb:
-                gated.append(y_lgb)
-            elif adann_confident and not lgb_confident:
-                gated.append(y_adann)
-            elif lgb_confident and not adann_confident:
-                gated.append(y_lgb)
-            elif adann_confident and lgb_confident:
-                gated.append(y_adann if m_adann > m_lgb else y_lgb)
-            else:
-                gated.append(static_class)
-        return np.asarray(gated, dtype=int)
-
     adann_threshold = float(trained_model.get("adann_conf_threshold", 0.5))
     lgb_threshold = float(trained_model.get("lgb_conf_threshold", 0.5))
     try:
@@ -990,6 +962,7 @@ def run_seed_stability_loso(
     final_val_ratio: float,
     group_aware_final_val: bool,
     fixed_hyperparams_path: str,
+    split_manifest: str = "",
 ) -> None:
     """Run LOSO seed stability with fold-wise Optuna best hyperparameters."""
     print(f"Loading data from: {csv_dir}")
@@ -1046,15 +1019,21 @@ def run_seed_stability_loso(
         y_train = y[train_mask]
         subj_train = subjects[train_mask]
 
-        split_seed = optuna_seed + int(test_subj) * 1000
-        X_tr, y_tr, subj_tr, X_val, y_val, subj_val = split_train_val(
-            X_train,
-            y_train,
-            subj_train,
-            split_seed=split_seed,
-            val_ratio=val_ratio,
-            group_aware=group_aware_final_val,
-        )
+        if split_manifest:
+            filenames = [p.name for p in sorted(Path(csv_dir).glob("*.csv"))]
+            tr, va, _ = partition_indices(split_manifest, filenames, test_subj)
+            X_tr, y_tr, subj_tr = X[tr], y[tr], subjects[tr]
+            X_val, y_val, subj_val = X[va], y[va], subjects[va]
+        else:
+            split_seed = optuna_seed + int(test_subj) * 1000
+            X_tr, y_tr, subj_tr, X_val, y_val, subj_val = split_train_val(
+                X_train,
+                y_train,
+                subj_train,
+                split_seed=split_seed,
+                val_ratio=val_ratio,
+                group_aware=group_aware_final_val,
+            )
         fold_split_data[int(test_subj)] = {
             "X_tr": X_tr,
             "y_tr": y_tr,
@@ -1297,7 +1276,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--seeds",
-        default="0,1,2,3,4,5,10,20,42,123",
+        default="42,123,2025,2026,3047",
         help="Comma-separated integer seeds",
     )
     parser.add_argument(
@@ -1374,7 +1353,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--selection_mode",
         type=str,
-        default="best_val_branch",
+        default="gated",
         choices=["best_val_branch", "robust_val_branch", "ensemble", "gated", "lgb", "adann"],
         help="How to choose final test prediction branch",
     )
@@ -1387,7 +1366,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--train_on_full_fold",
         action="store_true",
-        default=True,
+        default=False,
         help="For seed stage, re-split from full fold training data (more samples)",
     )
     parser.add_argument(
@@ -1431,6 +1410,7 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="If set, skip fold Optuna and use this hyperparams JSON",
     )
+    parser.add_argument("--split_manifest", default="reproducibility/generated/loso_seed42.csv")
     return parser.parse_args()
 
 

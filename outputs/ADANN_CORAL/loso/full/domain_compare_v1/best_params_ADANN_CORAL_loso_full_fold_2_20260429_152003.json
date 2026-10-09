@@ -1,0 +1,27 @@
+{
+  "model_type": "ADANN_CORAL",
+  "training_mode": "loso",
+  "optimization_mode": "full",
+  "fold_id": 2,
+  "timestamp": "20260429_152003",
+  "best_trial_number": 0,
+  "best_value": 1.0,
+  "best_params": {
+    "learning_rate": 0.0005611516415334506,
+    "batch_size": 16,
+    "feature_size": 48,
+    "gesture_loss_weight": 0.7339917805043039,
+    "domain_loss_weight": 0.5871254182522991,
+    "alignment_loss_weight": 1.7457346769723767,
+    "weight_decay": 6.358358856676247e-05,
+    "n_epochs": 121,
+    "augment_factor": 1,
+    "jitter_noise_level": 0.019548647782429915,
+    "time_warp_max_speed": 4,
+    "scale_min": 0.9169871288542621,
+    "scale_max": 1.034545997376568,
+    "augment_prob": 0.3917022549267169
+  },
+  "n_trials": 50,
+  "study_direction": "MAXIMIZE"
+}

@@ -1,0 +1,32 @@
+{
+  "model_type": "DSCNN",
+  "training_mode": "loso",
+  "optimization_mode": "full",
+  "fold_id": 4,
+  "timestamp": "20260429_160800",
+  "best_trial_number": 9,
+  "best_value": 1.0,
+  "best_params": {
+    "n_conv_layers": 2,
+    "use_batch_norm": false,
+    "use_conv_dropout": true,
+    "use_dense_dropout": false,
+    "activation": "relu",
+    "dense_units": 91,
+    "learning_rate": 0.009552294429449873,
+    "batch_size": 64,
+    "augment_factor": 2,
+    "jitter_noise_level": 0.011970157409952678,
+    "time_warp_max_speed": 3,
+    "scale_min": 0.9607847345365926,
+    "scale_max": 1.028807755327935,
+    "augment_prob": 0.542808346643554,
+    "conv1_filters": 98,
+    "conv1_kernel": 5,
+    "conv2_filters": 114,
+    "conv2_kernel": 4,
+    "conv_dropout": 0.30060651787487985
+  },
+  "n_trials": 50,
+  "study_direction": "MAXIMIZE"
+}
